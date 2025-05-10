@@ -13,6 +13,8 @@ microFGT is an integrated R package for comprehensive analysis of female genital
 - Built on TreeSummarizedExperiment data structure
 - Integrates with FGT-specific analysis tools
 - Supports both amplicon and metagenomic data
+- Includes realistic example datasets for FGT microbiomes
+- Simulates community state types (CSTs) with appropriate taxonomic profiles
 - Compatible with Bioconductor ecosystem
 - Follows tidyverse design principles
 
@@ -39,6 +41,57 @@ devtools::install_github("shandley/microFGT", dependencies = TRUE)
 
 ## Getting Started
 
+### Using Example Data
+
+microFGT includes built-in example data that simulates realistic FGT microbiome profiles. This is a great way to explore the package's functionality without needing your own data:
+
+```r
+library(microFGT)
+
+# Load pre-built example dataset (returns an FGTExperiment object)
+fgt_exp <- load_example_data(size = "small", type = "amplicon")
+
+# View basic information about the dataset
+fgt_exp
+
+# See sample metadata
+colData(fgt_exp)[, c("condition", "pH", "Nugent_Score")]
+
+# Transform to relative abundance
+fgt_rel <- transform_abundance(fgt_exp, type = "relative", assay_name = "counts")
+
+# Plot taxonomic composition
+plot_taxa_composition(fgt_rel, rank = "Phylum", top_n = 5, group_var = "condition")
+
+# Calculate and plot alpha diversity
+plot_alpha_diversity(fgt_exp, metrics = c("shannon"), group_var = "condition")
+```
+
+### Generate Custom Example Data
+
+You can also generate custom example data with specific properties:
+
+```r
+# Generate a dataset with specific community state types
+custom_data <- generate_fgt_example_data(
+  n_samples = 20,
+  n_features = 100,
+  sample_groups = c("Healthy", "BV", "Intermediate"),
+  group_proportions = c(0.5, 0.3, 0.2),
+  community_types = c("CST-I", "CST-III", "CST-IV"),
+  format = "FGTExperiment"
+)
+
+# Explore different community state types
+custom_rel <- transform_abundance(custom_data, type = "relative")
+plot_taxa_composition(custom_rel, rank = "Genus", top_n = 8,
+                      group_var = "community_state_type")
+```
+
+### Using Your Own Data
+
+If you have your own data, you can import it from common formats:
+
 ```r
 library(microFGT)
 
@@ -56,7 +109,7 @@ fgt_exp <- fgt_exp %>%
   transform_abundance(type = "relative")
 
 # Plot taxonomic composition
-plot_taxa_composition(fgt_exp, rank = "Genus", top_n = 10, 
+plot_taxa_composition(fgt_exp, rank = "Genus", top_n = 10,
                      group_var = "subject_group")
 ```
 
