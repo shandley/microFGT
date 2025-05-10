@@ -2,7 +2,7 @@
 #'
 #' Creates an FGTExperiment object, which extends TreeSummarizedExperiment with
 #' additional slots for FGT microbiome-specific data. This version adds additional
-#' error checking and handling.
+#' error checking and handling to fix the "invalid rownames length" error.
 #'
 #' @param assays List of matrices or similar objects containing count or abundance data
 #' @param rowData DataFrame of feature metadata (e.g., taxonomic classifications)
@@ -20,28 +20,14 @@
 #' counts <- matrix(sample(1:100, 60), nrow = 10, ncol = 6)
 #' rownames(counts) <- paste0("Feature", 1:10)
 #' colnames(counts) <- paste0("Sample", 1:6)
-#'
-#' # Sample metadata
-#' sample_data <- data.frame(
-#'   group = rep(c("A", "B"), each = 3),
-#'   row.names = colnames(counts)
-#' )
-#'
-#' # Feature metadata
-#' feature_data <- data.frame(
-#'   Kingdom = rep("Bacteria", 10),
-#'   Phylum = sample(c("Firmicutes", "Bacteroidetes"), 10, replace = TRUE),
-#'   row.names = rownames(counts)
-#' )
-#'
-#' fgt_exp <- createFGTExperiment(
-#'   assays = list(counts = counts),
-#'   rowData = feature_data,
-#'   colData = sample_data
+#' 
+#' # Create simple FGTExperiment
+#' fgt_exp <- create_FGTExperiment(
+#'   assays = list(counts = counts)
 #' )
 #' }
-createFGTExperiment <- function(assays, rowData = NULL, colData = NULL, rowTree = NULL,
-                             experimentType = "amplicon", ...) {
+create_FGTExperiment <- function(assays, rowData = NULL, colData = NULL, rowTree = NULL,
+                               experimentType = "amplicon", ...) {
   
   # Input validation
   if (!experimentType %in% c("amplicon", "metagenomic", "integrated")) {
@@ -103,35 +89,49 @@ createFGTExperiment <- function(assays, rowData = NULL, colData = NULL, rowTree 
     }
   }
   
-  # Create TreeSummarizedExperiment with explicit try-catch
+  # Use two-step approach to bypass constructor issues
+  # 1. Create SummarizedExperiment
+  se <- SummarizedExperiment::SummarizedExperiment(
+    assays = assays,
+    rowData = rowData,
+    colData = colData,
+    ...
+  )
+  
+  # 2. Convert to TreeSummarizedExperiment
   tse <- tryCatch({
-    TreeSummarizedExperiment::TreeSummarizedExperiment(
-      assays = assays,
-      rowData = rowData,
-      colData = colData,
-      rowTree = rowTree,
-      ...
-    )
+    TreeSummarizedExperiment::TreeSummarizedExperiment(se, rowTree = rowTree)
   }, error = function(e) {
     message("Error creating TreeSummarizedExperiment: ", conditionMessage(e))
-    
-    # Try a more direct approach using SummarizedExperiment
-    se <- SummarizedExperiment::SummarizedExperiment(
-      assays = assays,
-      rowData = rowData,
-      colData = colData,
-      ...
-    )
-    
-    # Manually convert to TreeSummarizedExperiment
-    TreeSummarizedExperiment::TreeSummarizedExperiment(se, rowTree = rowTree)
+    # Return the SummarizedExperiment if TSE creation fails
+    se
   })
   
-  # Create FGTExperiment object
+  # 3. Create FGTExperiment object directly
   obj <- methods::new("FGTExperiment", 
-                     tse,
-                     experimentType = experimentType,
-                     fgtMetadata = S4Vectors::SimpleList())
+                    tse,
+                    experimentType = experimentType,
+                    fgtMetadata = S4Vectors::SimpleList())
+  
+  # 4. Ensure assays are properly named
+  if (length(assayNames(obj)) > 0 && assayNames(obj)[1] == "") {
+    assayNames(obj)[1] <- "counts"
+  }
   
   return(obj)
+}
+
+#' Helper function to check if FGTExperiment class exists
+#'
+#' @return Logical indicating if the class is available
+is_fgt_available <- function() {
+  if (!requireNamespace("TreeSummarizedExperiment", quietly = TRUE)) {
+    return(FALSE)
+  }
+  if (!requireNamespace("SummarizedExperiment", quietly = TRUE)) {
+    return(FALSE)
+  }
+  
+  # Check if FGTExperiment class is defined
+  methods::existsClass("FGTExperiment")
 }

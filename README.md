@@ -6,6 +6,8 @@
 
 microFGT is an integrated R package for comprehensive analysis of female genital tract (FGT) microbiome data. This package unifies specialized tools (dada2, phyloseq, speciateIT, VALENCIA, and VIRGO) within a cohesive framework that handles both amplicon and metagenomic sequencing data.
 
+> 🚧 **ALPHA STAGE SOFTWARE**: This package is in early development and not ready for production use. APIs may change, functions may not work as expected, and documentation may be incomplete. See the [Development Guide](DEVELOPMENT.md) for current status and known issues.
+
 ## Features
 
 - Built on TreeSummarizedExperiment data structure
