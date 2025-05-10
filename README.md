@@ -1,12 +1,12 @@
 # microFGT: Comprehensive Analysis of Female Genital Tract Microbiome Data
 
-<img src="https://github.com/shandley/microFGT/blob/main/microFGT_logo.png" alt="microFGT Logo" width="150" align="right"/>
+<img src="inst/extdata/microFGT_logo.png" alt="microFGT Logo" width="150" align="right"/>
 
 ## Overview
 
 microFGT is an integrated R package for comprehensive analysis of female genital tract (FGT) microbiome data. This package unifies specialized tools (dada2, phyloseq, speciateIT, VALENCIA, and VIRGO) within a cohesive framework that handles both amplicon and metagenomic sequencing data.
 
-> 🚧 **ALPHA STAGE SOFTWARE**: This package is in early development and not ready for production use. APIs may change, functions may not work as expected, and documentation may be incomplete. See the [Development Guide](DEVELOPMENT.md) for current status and known issues.
+> 🚧 **ALPHA STAGE SOFTWARE**: This package is in early development and not ready for production use. APIs may change, functions may not work as expected, and documentation may be incomplete.
 
 ## Features
 
@@ -84,7 +84,7 @@ custom_data <- generate_fgt_example_data(
 
 # Explore different community state types
 custom_rel <- transform_abundance(custom_data, type = "relative")
-plot_taxa_composition(custom_rel, rank = "Genus", top_n = 8,
+plot_taxa_composition(custom_rel, rank = "Genus", top_n = 8, 
                       group_var = "community_state_type")
 ```
 
@@ -109,7 +109,7 @@ fgt_exp <- fgt_exp %>%
   transform_abundance(type = "relative")
 
 # Plot taxonomic composition
-plot_taxa_composition(fgt_exp, rank = "Genus", top_n = 10,
+plot_taxa_composition(fgt_exp, rank = "Genus", top_n = 10, 
                      group_var = "subject_group")
 ```
 

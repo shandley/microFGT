@@ -13,3 +13,12 @@
 ^\.gitignore$
 ^data-raw$
 ^vignettes/articles$
+^development$
+^\.circleci$
+^CRAN-SUBMISSION$
+^appveyor\.yml$
+^codemeta\.json$
+^microFGT_engineering_plan\.md$
+^move_rebuild\.sh$
+^direct_solution\.R$
+^\.pre-commit-config\.yaml$

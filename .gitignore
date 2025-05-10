@@ -1,1 +1,71 @@
 **/.claude/settings.local.json
+
+# R specific
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rapp.history
+.Renviron
+.Rprofile
+
+# Build artifacts
+*.o
+*.so
+*.dll
+*.a
+*.Rout
+**/*_cache/
+**/*_files/
+
+# Mac specific
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Editor specific
+.idea/
+.vscode/
+*.vim
+*.swp
+*.swo
+*~
+
+# Package specific
+inst/doc/
+doc/
+docs/
+Meta/
+/revdep/
+/check/
+
+# Temporary files
+temp/
+tmp/
+.tmp/
+*.log
+*.tmp
+*.bak
+
+# Test artifacts
+tests/testthat/Rplots.pdf
+
+# Documentation generated files
+vignettes/*.html
+vignettes/*.pdf
+vignettes/*.R
+
+# Backup files
+*.backup
+backup/
+*_backup_*
+
+# Compiled package
+microFGT_*.tar.gz
+
+# Generated data
+data-raw/private/

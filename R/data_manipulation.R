@@ -24,11 +24,11 @@
 filter_taxa <- function(fgt_exp, min_prevalence = 0.1, min_abundance = 0.001, 
                         assay_name = "counts") {
   # Input validation
-  if (!methods::is(fgt_exp, "FGTExperiment")) {
+  if (!is(fgt_exp, "FGTExperiment")) {
     stop("Input must be an FGTExperiment object")
   }
   
-  if (!assay_name %in% names(SummarizedExperiment::assays(fgt_exp))) {
+  if (!assay_name %in% SummarizedExperiment::assayNames(fgt_exp)) {
     stop(paste0("Assay '", assay_name, "' not found in the FGTExperiment object"))
   }
   
@@ -39,7 +39,7 @@ filter_taxa <- function(fgt_exp, min_prevalence = 0.1, min_abundance = 0.001,
   prevalence <- rowSums(counts > 0) / ncol(counts)
   
   # Calculate relative abundance (per sample, then take mean)
-  rel_abundances <- counts / rep(colSums(counts), each = nrow(counts))
+  rel_abundances <- t(t(counts) / colSums(counts))
   rel_abundances[is.na(rel_abundances)] <- 0
   mean_rel_abundance <- rowMeans(rel_abundances)
   
@@ -91,11 +91,11 @@ filter_taxa <- function(fgt_exp, min_prevalence = 0.1, min_abundance = 0.001,
 transform_abundance <- function(fgt_exp, type = "relative", assay_name = "counts",
                               new_assay_name = NULL, pseudocount = 1) {
   # Input validation
-  if (!methods::is(fgt_exp, "FGTExperiment")) {
+  if (!is(fgt_exp, "FGTExperiment")) {
     stop("Input must be an FGTExperiment object")
   }
   
-  if (!assay_name %in% names(SummarizedExperiment::assays(fgt_exp))) {
+  if (!assay_name %in% SummarizedExperiment::assayNames(fgt_exp)) {
     stop(paste0("Assay '", assay_name, "' not found in the FGTExperiment object"))
   }
   
@@ -111,75 +111,30 @@ transform_abundance <- function(fgt_exp, type = "relative", assay_name = "counts
     new_assay_name <- type
   }
   
-  # Apply transformation with R fallbacks if C++ functions are not available
-  transformed <- tryCatch({
-    # First try C++ functions
-    switch(
-      type,
-      "relative" = {
-        if (exists("cpp_rel_abundance", mode = "function")) {
-          cpp_rel_abundance(counts)
-        } else {
-          # R fallback for relative abundance
-          t(t(counts) / colSums(counts))
-        }
-      },
-      "clr" = {
-        if (exists("cpp_clr_transform", mode = "function")) {
-          cpp_clr_transform(counts, pseudocount)
-        } else {
-          # R fallback for CLR transformation
-          log_counts <- log(counts + pseudocount)
-          sample_means <- colMeans(log_counts)
-          log_counts - rep(sample_means, each = nrow(counts))
-        }
-      },
-      "log" = {
-        if (exists("cpp_log_transform", mode = "function")) {
-          cpp_log_transform(counts, pseudocount)
-        } else {
-          # R fallback for log transformation
-          log(counts + pseudocount)
-        }
-      },
-      "presence" = {
-        if (exists("cpp_presence_absence", mode = "function")) {
-          cpp_presence_absence(counts)
-        } else {
-          # R fallback for presence/absence
-          matrix(as.numeric(counts > 0), nrow = nrow(counts), ncol = ncol(counts),
-                 dimnames = dimnames(counts))
-        }
-      }
-    )
-  }, error = function(e) {
-    # If any error occurs, use R fallbacks
-    warning("C++ functions unavailable, using R fallbacks: ", conditionMessage(e))
-
-    switch(
-      type,
-      "relative" = {
-        # R implementation for relative abundance
-        rel_abundance <- t(t(counts) / colSums(counts))
-        rel_abundance[is.na(rel_abundance)] <- 0
-        rel_abundance
-      },
-      "clr" = {
-        # R implementation for CLR transformation
-        log_counts <- log(counts + pseudocount)
-        t(t(log_counts) - colMeans(log_counts))
-      },
-      "log" = {
-        # R implementation for log transformation
-        log(counts + pseudocount)
-      },
-      "presence" = {
-        # R implementation for presence/absence
-        matrix(as.numeric(counts > 0), nrow = nrow(counts), ncol = ncol(counts),
-               dimnames = dimnames(counts))
-      }
-    )
-  })
+  # Apply transformation with R implementations
+  transformed <- switch(
+    type,
+    "relative" = {
+      # Relative abundance
+      rel_abundance <- t(t(counts) / colSums(counts))
+      rel_abundance[is.na(rel_abundance)] <- 0
+      rel_abundance
+    },
+    "clr" = {
+      # Centered log-ratio transformation
+      log_counts <- log(counts + pseudocount)
+      t(t(log_counts) - colMeans(log_counts))
+    },
+    "log" = {
+      # Log transformation
+      log(counts + pseudocount)
+    },
+    "presence" = {
+      # Presence/absence
+      matrix(as.numeric(counts > 0), nrow = nrow(counts), ncol = ncol(counts),
+             dimnames = dimnames(counts))
+    }
+  )
   
   # Add new assay to object
   SummarizedExperiment::assays(fgt_exp)[[new_assay_name]] <- transformed
@@ -213,16 +168,32 @@ transform_abundance <- function(fgt_exp, type = "relative", assay_name = "counts
 #'
 #' @examples
 #' \dontrun{
+#' # Create data with taxonomy
+#' counts <- matrix(sample(1:100, 60), nrow = 10, ncol = 6)
+#' rownames(counts) <- paste0("Feature", 1:10)
+#' colnames(counts) <- paste0("Sample", 1:6)
+#' 
+#' taxonomy <- data.frame(
+#'   Phylum = sample(c("Firmicutes", "Bacteroidetes"), 10, replace = TRUE),
+#'   Genus = sample(c("Lactobacillus", "Gardnerella"), 10, replace = TRUE),
+#'   row.names = rownames(counts)
+#' )
+#' 
+#' fgt_exp <- FGTExperiment(
+#'   assays = list(counts = counts),
+#'   rowData = taxonomy
+#' )
+#' 
 #' # Aggregate counts at genus level
 #' genus_level <- aggregate_taxa(fgt_exp, rank = "Genus")
 #' }
 aggregate_taxa <- function(fgt_exp, rank, assay_name = "counts", empty_label = "Unclassified") {
   # Input validation
-  if (!methods::is(fgt_exp, "FGTExperiment")) {
+  if (!is(fgt_exp, "FGTExperiment")) {
     stop("Input must be an FGTExperiment object")
   }
   
-  if (!assay_name %in% names(SummarizedExperiment::assays(fgt_exp))) {
+  if (!assay_name %in% SummarizedExperiment::assayNames(fgt_exp)) {
     stop(paste0("Assay '", assay_name, "' not found in the FGTExperiment object"))
   }
   
@@ -278,116 +249,44 @@ aggregate_taxa <- function(fgt_exp, rank, assay_name = "counts", empty_label = "
   return(agg_fgt_exp)
 }
 
-#' Extract taxa abundance data as tibble
-#'
-#' Extracts abundance data from an FGTExperiment object as a tibble for easy
-#' manipulation with dplyr and other tidyverse tools.
-#'
-#' @param fgt_exp An FGTExperiment object
-#' @param assay_name Name of the assay to extract
-#' @param include_metadata Include taxa metadata columns
-#'
-#' @return A tibble with abundance data
-#' @export
-#'
-#' @examples
-#' # Create a simple FGTExperiment
-#' counts <- matrix(sample(1:100, 60), nrow = 10, ncol = 6)
-#' rownames(counts) <- paste0("Feature", 1:10)
-#' colnames(counts) <- paste0("Sample", 1:6)
-#' 
-#' fgt_exp <- FGTExperiment(assays = list(counts = counts))
-#' 
-#' # Extract abundance data as tibble
-#' abundance_tbl <- get_taxa_abundances(fgt_exp)
-get_taxa_abundances <- function(fgt_exp, assay_name = "counts", include_metadata = TRUE) {
-  if (!requireNamespace("tibble", quietly = TRUE)) {
-    stop("Package 'tibble' is required for this function")
-  }
-  
-  if (!requireNamespace("dplyr", quietly = TRUE)) {
-    stop("Package 'dplyr' is required for this function")
-  }
-  
-  # Input validation
-  if (!methods::is(fgt_exp, "FGTExperiment")) {
-    stop("Input must be an FGTExperiment object")
-  }
-  
-  if (!assay_name %in% names(SummarizedExperiment::assays(fgt_exp))) {
-    stop(paste0("Assay '", assay_name, "' not found in the FGTExperiment object"))
-  }
-  
-  # Extract abundance data
-  abund_mat <- SummarizedExperiment::assays(fgt_exp)[[assay_name]]
-  
-  # Convert to tibble
-  abund_tib <- tibble::as_tibble(abund_mat, rownames = "taxon_id")
-  
-  # Add metadata if requested
-  if (include_metadata) {
-    taxa_meta <- tibble::as_tibble(SummarizedExperiment::rowData(fgt_exp), 
-                                rownames = "taxon_id")
-    
-    # Ensure taxon_id columns match
-    if (!identical(abund_tib$taxon_id, taxa_meta$taxon_id)) {
-      taxa_meta <- taxa_meta[match(abund_tib$taxon_id, taxa_meta$taxon_id), ]
-    }
-    
-    # Drop duplicate taxon_id column
-    taxa_meta$taxon_id <- NULL
-    
-    # Combine abundance and metadata
-    result <- dplyr::bind_cols(abund_tib, taxa_meta)
-  } else {
-    result <- abund_tib
-  }
-  
-  return(result)
-}
-
-#' Extract sample data as tibble
-#'
-#' Extracts sample metadata from an FGTExperiment object as a tibble.
+#' Get taxonomic ranks available in an FGTExperiment
 #'
 #' @param fgt_exp An FGTExperiment object
 #'
-#' @return A tibble with sample metadata
+#' @return Character vector of available taxonomic ranks
 #' @export
 #'
 #' @examples
-#' # Create a simple FGTExperiment with sample metadata
-#' counts <- matrix(sample(1:100, 60), nrow = 10, ncol = 6)
-#' rownames(counts) <- paste0("Feature", 1:10)
-#' colnames(counts) <- paste0("Sample", 1:6)
-#' 
-#' sample_data <- data.frame(
-#'   group = rep(c("A", "B"), each = 3),
-#'   row.names = colnames(counts)
-#' )
-#' 
-#' fgt_exp <- FGTExperiment(
-#'   assays = list(counts = counts),
-#'   colData = sample_data
-#' )
-#' 
-#' # Extract sample data as tibble
-#' sample_tbl <- get_sample_data(fgt_exp)
-get_sample_data <- function(fgt_exp) {
-  if (!requireNamespace("tibble", quietly = TRUE)) {
-    stop("Package 'tibble' is required for this function")
-  }
-  
+#' \dontrun{
+#' # Get available ranks
+#' ranks <- get_taxonomic_ranks(fgt_exp)
+#' }
+get_taxonomic_ranks <- function(fgt_exp) {
   # Input validation
-  if (!methods::is(fgt_exp, "FGTExperiment")) {
+  if (!is(fgt_exp, "FGTExperiment")) {
     stop("Input must be an FGTExperiment object")
   }
   
-  # Extract sample data
-  sample_df <- SummarizedExperiment::colData(fgt_exp)
+  # Get rowData column names that are likely taxonomic ranks
+  rowdata <- SummarizedExperiment::rowData(fgt_exp)
   
-  # Convert to tibble
-  sample_tib <- tibble::as_tibble(sample_df, rownames = "sample_id")
+  if (ncol(rowdata) == 0) {
+    return(character(0))
+  }
   
-  return(sample_tib)
+  # Standard taxonomic ranks to look for
+  standard_ranks <- c(
+    "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species",
+    "kingdom", "phylum", "class", "order", "family", "genus", "species"
+  )
+  
+  # Find which columns match standard ranks
+  rank_cols <- colnames(rowdata)[colnames(rowdata) %in% standard_ranks]
+  
+  # If no standard ranks found, return all column names
+  if (length(rank_cols) == 0) {
+    return(colnames(rowdata))
+  }
+  
+  return(rank_cols)
 }

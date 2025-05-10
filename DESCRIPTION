@@ -14,18 +14,25 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
+biocViews: Microbiome, Sequencing, Metagenomics, Classification, Visualization
+URL: https://github.com/shandley/microFGT
+BugReports: https://github.com/shandley/microFGT/issues
+VignetteBuilder: knitr
+Depends:
+    R (>= 4.1.0)
 Imports:
-    TreeSummarizedExperiment,
-    SummarizedExperiment,
-    MultiAssayExperiment,
+    methods,
     S4Vectors,
+    SummarizedExperiment,
+    TreeSummarizedExperiment,
     Biostrings,
     BiocParallel,
     dplyr,
-    magrittr,
-    ggplot2,
     tibble,
-    methods,
+    ggplot2,
+    magrittr,
+    stats,
+    utils,
     Rcpp (>= 1.0.5)
 Suggests:
     testthat (>= 3.0.0),
@@ -35,10 +42,7 @@ Suggests:
     phyloseq,
     dada2,
     DESeq2,
-    vegan
-Bioconductor: true
-biocViews: Microbiome, Sequencing, Metagenomics, Classification, Visualization
-LinkingTo: Rcpp
-VignetteBuilder: knitr
-URL: https://github.com/shandley/microFGT
-BugReports: https://github.com/shandley/microFGT/issues
+    vegan,
+    ape
+LinkingTo: 
+    Rcpp
