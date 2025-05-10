@@ -6,10 +6,15 @@
 #' appropriate clinical metadata.
 #'
 #' @name example_data
-#' @keywords internal
+NULL
 
 # Load necessary internal constants
-source(system.file("R/example_data/constants.R", package = "microFGT", mustWork = FALSE))
+tryCatch({
+  source(system.file("R/example_data/constants.R", package = "microFGT", mustWork = FALSE))
+}, error = function(e) {
+  # Constants will be defined directly in the test file
+  message("Note: Constants are expected to be defined externally or already loaded")
+})
 
 #' Generate a complete example FGT microbiome dataset
 #'
@@ -46,6 +51,7 @@ source(system.file("R/example_data/constants.R", package = "microFGT", mustWork 
 #' )
 #' }
 #' @export
+#' @rdname example_data
 generate_fgt_example_data <- function(
   n_samples = 20,
   n_features = 100,
@@ -767,6 +773,7 @@ save_example_data <- function(
 #' fgt_exp <- load_example_data("medium", "amplicon", as_fgt_experiment = TRUE)
 #' }
 #' @export
+#' @rdname example_data
 load_example_data <- function(
   size = "small",
   type = "amplicon",
