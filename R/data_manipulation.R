@@ -111,22 +111,75 @@ transform_abundance <- function(fgt_exp, type = "relative", assay_name = "counts
     new_assay_name <- type
   }
   
-  # Apply transformation using C++ functions for speed
-  transformed <- switch(
-    type,
-    "relative" = {
-      cpp_rel_abundance(counts)
-    },
-    "clr" = {
-      cpp_clr_transform(counts, pseudocount)
-    },
-    "log" = {
-      cpp_log_transform(counts, pseudocount)
-    },
-    "presence" = {
-      cpp_presence_absence(counts)
-    }
-  )
+  # Apply transformation with R fallbacks if C++ functions are not available
+  transformed <- tryCatch({
+    # First try C++ functions
+    switch(
+      type,
+      "relative" = {
+        if (exists("cpp_rel_abundance", mode = "function")) {
+          cpp_rel_abundance(counts)
+        } else {
+          # R fallback for relative abundance
+          t(t(counts) / colSums(counts))
+        }
+      },
+      "clr" = {
+        if (exists("cpp_clr_transform", mode = "function")) {
+          cpp_clr_transform(counts, pseudocount)
+        } else {
+          # R fallback for CLR transformation
+          log_counts <- log(counts + pseudocount)
+          sample_means <- colMeans(log_counts)
+          log_counts - rep(sample_means, each = nrow(counts))
+        }
+      },
+      "log" = {
+        if (exists("cpp_log_transform", mode = "function")) {
+          cpp_log_transform(counts, pseudocount)
+        } else {
+          # R fallback for log transformation
+          log(counts + pseudocount)
+        }
+      },
+      "presence" = {
+        if (exists("cpp_presence_absence", mode = "function")) {
+          cpp_presence_absence(counts)
+        } else {
+          # R fallback for presence/absence
+          matrix(as.numeric(counts > 0), nrow = nrow(counts), ncol = ncol(counts),
+                 dimnames = dimnames(counts))
+        }
+      }
+    )
+  }, error = function(e) {
+    # If any error occurs, use R fallbacks
+    warning("C++ functions unavailable, using R fallbacks: ", conditionMessage(e))
+
+    switch(
+      type,
+      "relative" = {
+        # R implementation for relative abundance
+        rel_abundance <- t(t(counts) / colSums(counts))
+        rel_abundance[is.na(rel_abundance)] <- 0
+        rel_abundance
+      },
+      "clr" = {
+        # R implementation for CLR transformation
+        log_counts <- log(counts + pseudocount)
+        t(t(log_counts) - colMeans(log_counts))
+      },
+      "log" = {
+        # R implementation for log transformation
+        log(counts + pseudocount)
+      },
+      "presence" = {
+        # R implementation for presence/absence
+        matrix(as.numeric(counts > 0), nrow = nrow(counts), ncol = ncol(counts),
+               dimnames = dimnames(counts))
+      }
+    )
+  })
   
   # Add new assay to object
   SummarizedExperiment::assays(fgt_exp)[[new_assay_name]] <- transformed
