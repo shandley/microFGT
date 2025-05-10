@@ -24,11 +24,15 @@ install.packages(c("dplyr", "tibble", "magrittr", "ggplot2", "Rcpp", "methods"))
 if (!requireNamespace("BiocManager", quietly=TRUE))
     install.packages("BiocManager")
 
-BiocManager::install(c("TreeSummarizedExperiment", "SummarizedExperiment", 
-                      "MultiAssayExperiment", "S4Vectors", "Biostrings"))
+# Add BioConductor repositories and install dependencies
+BiocManager::install(c("TreeSummarizedExperiment", "SummarizedExperiment",
+                      "MultiAssayExperiment", "S4Vectors", "Biostrings", "BiocParallel"),
+                    update = FALSE)
 
 # Install microFGT from GitHub
-# devtools::install_github("shandley/microFGT")
+if (!requireNamespace("devtools", quietly=TRUE))
+    install.packages("devtools")
+devtools::install_github("shandley/microFGT", dependencies = TRUE)
 ```
 
 ## Getting Started
