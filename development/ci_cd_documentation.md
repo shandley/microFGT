@@ -136,6 +136,55 @@ pkgdown::build_site()
 3. Tag a new release
 4. The pkgdown workflow will automatically deploy updated documentation
 
+## Troubleshooting
+
+### Common Issues
+
+#### Multiple Workflow Instances Running
+
+If multiple instances of the same workflow start running simultaneously after a push, there are several potential causes:
+
+1. **Duplicate Workflow Files**:
+   - GitHub Actions recognizes both `.yml` and `.yaml` extensions
+   - Having both (e.g., `R-CMD-check.yml` and `R-CMD-check.yaml`) will cause duplicate runs
+   - Solution: Remove duplicate workflow files
+
+   ```bash
+   git rm .github/workflows/duplicate-file.yml
+   git commit -m "Remove duplicate workflow file"
+   git push
+   ```
+
+2. **Workflow Concurrency Issues**:
+   - GitHub Actions may process workflow files in parallel
+   - Modifying workflow files can sometimes trigger the workflow itself
+   - Solution: Add concurrency group to limit simultaneous runs
+
+   ```yaml
+   # Add this to your workflow
+   concurrency:
+     group: ${{ github.workflow }}-${{ github.ref }}
+     cancel-in-progress: true
+   ```
+
+3. **Path Filtering**:
+   - Use `paths-ignore` to skip workflow runs for irrelevant changes
+   - Particularly useful for documentation and CI configuration changes
+
+   ```yaml
+   on:
+     push:
+       branches: [main, develop]
+       paths-ignore:
+         - '**.md'
+         - '.github/workflows/**'
+   ```
+
+4. **Self-Referential Triggers**:
+   - Changes to workflow files can trigger the workflows themselves
+   - Create a separate workflow for CI/CD file validation
+   - Use path filtering to prevent cycles
+
 ## Future Improvements
 
 Planned enhancements to the CI/CD pipeline:

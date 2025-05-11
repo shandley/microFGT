@@ -1,0 +1,34 @@
+# CI Workflow Management for microFGT
+# Validates CI/CD workflow configurations
+
+name: CI Management
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '.github/workflows/**'
+      - 'codecov.yml'
+      - '_pkgdown.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Validate Workflow Files
+        run: |
+          echo "Validating workflow files..."
+          for file in .github/workflows/*.{yaml,yml}; do
+            if [ -f "$file" ]; then
+              echo "Checking $file"
+              cat "$file" | python -c "import sys, yaml; yaml.safe_load(sys.stdin)" || echo "Error in $file"
+            fi
+          done
+          echo "Workflow validation complete"

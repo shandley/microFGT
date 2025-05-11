@@ -6,10 +6,22 @@ name: test-coverage
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - 'CODEOWNERS'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/workflows/**'  # Skip when only updating workflows
   pull_request:
     branches: [main, develop]
   schedule:
     - cron: '0 4 * * 1' # Run weekly on Mondays at 4:00 UTC
+  workflow_dispatch: # Allow manual triggering
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-coverage:
