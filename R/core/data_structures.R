@@ -1,163 +1,86 @@
-#' @title FGTExperiment Class
-#' @description S4 class extending TreeSummarizedExperiment for FGT microbiome data
+#' Data structure utility functions
 #'
-#' @importClassesFrom TreeSummarizedExperiment TreeSummarizedExperiment
-#' @importFrom S4Vectors SimpleList
+#' This file contains utility functions for working with FGTExperiment and related data structures.
+#' The FGTExperiment class itself is defined in FGTExperiment-class.R.
 #'
-#' @export
-setClass("FGTExperiment",
-         contains = "TreeSummarizedExperiment",
-         slots = list(
-           experimentType = "character",
-           fgtMetadata = "SimpleList"
-         ),
-         prototype = list(
-           experimentType = "amplicon",
-           fgtMetadata = S4Vectors::SimpleList()
-         )
-)
+#' @name data_structures
+#' @keywords internal
+NULL
 
-#' Constructor for FGTExperiment objects
+#' Check if an object is an FGTExperiment
 #'
-#' Creates an FGTExperiment object, which extends TreeSummarizedExperiment with
-#' additional slots for FGT microbiome-specific data.
+#' @param x Object to check
 #'
-#' @param assays List of matrices or similar objects containing count or abundance data
-#' @param rowData DataFrame of feature metadata (e.g., taxonomic classifications)
-#' @param colData DataFrame of sample metadata
-#' @param rowTree phylo object or NULL for feature tree (e.g., phylogenetic tree)
-#' @param experimentType Type of experiment ("amplicon", "metagenomic", "integrated")
-#' @param ... Additional arguments passed to TreeSummarizedExperiment constructor
-#'
-#' @return An FGTExperiment object
+#' @return Logical indicating if x is an FGTExperiment
 #' @export
-#'
-#' @examples
-#' # Create a simple FGTExperiment
-#' counts <- matrix(sample(1:100, 60), nrow = 10, ncol = 6)
-#' rownames(counts) <- paste0("Feature", 1:10)
-#' colnames(counts) <- paste0("Sample", 1:6)
-#' 
-#' # Sample metadata
-#' sample_data <- data.frame(
-#'   group = rep(c("A", "B"), each = 3),
-#'   row.names = colnames(counts)
-#' )
-#' 
-#' # Feature metadata
-#' feature_data <- data.frame(
-#'   Kingdom = rep("Bacteria", 10),
-#'   Phylum = sample(c("Firmicutes", "Bacteroidetes"), 10, replace = TRUE),
-#'   row.names = rownames(counts)
-#' )
-#' 
-#' fgt_exp <- FGTExperiment(
-#'   assays = list(counts = counts),
-#'   rowData = feature_data,
-#'   colData = sample_data
-#' )
-FGTExperiment <- function(assays, rowData = NULL, colData = NULL, rowTree = NULL,
-                         experimentType = "amplicon", ...) {
-  
-  # Input validation
-  if (!experimentType %in% c("amplicon", "metagenomic", "integrated")) {
-    stop("experimentType must be one of: 'amplicon', 'metagenomic', 'integrated'")
-  }
-  
-  # Create TreeSummarizedExperiment
-  tse <- TreeSummarizedExperiment::TreeSummarizedExperiment(
-    assays = assays,
-    rowData = rowData,
-    colData = colData,
-    rowTree = rowTree,
-    ...
-  )
-  
-  # Create FGTExperiment object
-  obj <- new("FGTExperiment", 
-            tse,
-            experimentType = experimentType,
-            fgtMetadata = S4Vectors::SimpleList())
-  
-  return(obj)
+is_fgt_experiment <- function(x) {
+  inherits(x, "FGTExperiment")
 }
 
-#' Get experiment type
+#' Create a new FGTExperiment with modified data
 #'
-#' @param x An FGTExperiment object
+#' This function creates a new FGTExperiment by modifying an existing one.
+#' It's useful for internal operations that need to return modified objects.
 #'
-#' @return A character string indicating the experiment type
-#' @export
-setGeneric("experimentType", function(x) standardGeneric("experimentType"))
-
-#' @rdname experimentType
-#' @export
-setMethod("experimentType", "FGTExperiment", function(x) {
-  return(x@experimentType)
-})
-
-#' Set experiment type
+#' @param fgt_exp Original FGTExperiment
+#' @param new_assays List of new assays (optional)
+#' @param new_rowData New rowData (optional)
+#' @param new_colData New colData (optional)
+#' @param new_rowTree New rowTree (optional)
+#' @param new_experimentType New experimentType (optional)
+#' @param new_fgtMetadata New fgtMetadata (optional)
 #'
-#' @param x An FGTExperiment object
-#' @param value A character string ("amplicon", "metagenomic", or "integrated")
-#'
-#' @return An updated FGTExperiment object
-#' @export
-setGeneric("experimentType<-", function(x, value) standardGeneric("experimentType<-"))
-
-#' @rdname experimentType
-#' @export
-setMethod("experimentType<-", "FGTExperiment", function(x, value) {
-  if (!value %in% c("amplicon", "metagenomic", "integrated")) {
-    stop("experimentType must be one of: 'amplicon', 'metagenomic', 'integrated'")
+#' @return A new FGTExperiment with updated data
+#' @keywords internal
+update_fgt_experiment <- function(fgt_exp, 
+                                new_assays = NULL,
+                                new_rowData = NULL,
+                                new_colData = NULL,
+                                new_rowTree = NULL,
+                                new_experimentType = NULL,
+                                new_fgtMetadata = NULL) {
+  
+  # Check input
+  if (!is_fgt_experiment(fgt_exp)) {
+    stop(format_error("Object is not an FGTExperiment", "update_fgt_experiment"))
   }
-  x@experimentType <- value
-  return(x)
-})
-
-#' Get FGT metadata
-#'
-#' @param x An FGTExperiment object
-#'
-#' @return A SimpleList containing FGT-specific metadata
-#' @export
-setGeneric("fgtMetadata", function(x) standardGeneric("fgtMetadata"))
-
-#' @rdname fgtMetadata
-#' @export
-setMethod("fgtMetadata", "FGTExperiment", function(x) {
-  return(x@fgtMetadata)
-})
-
-#' Set FGT metadata
-#'
-#' @param x An FGTExperiment object
-#' @param value A SimpleList containing FGT-specific metadata
-#'
-#' @return An updated FGTExperiment object
-#' @export
-setGeneric("fgtMetadata<-", function(x, value) standardGeneric("fgtMetadata<-"))
-
-#' @rdname fgtMetadata
-#' @export
-setMethod("fgtMetadata<-", "FGTExperiment", function(x, value) {
-  if (!is(value, "SimpleList")) {
-    stop("fgtMetadata must be a SimpleList")
+  
+  # Create a copy of the original
+  result <- fgt_exp
+  
+  # Update assays if provided
+  if (!is.null(new_assays)) {
+    # Implementation depends on specifics of how to replace assays
+    # This is just a placeholder
+    for (name in names(new_assays)) {
+      assay(result, name) <- new_assays[[name]]
+    }
   }
-  x@fgtMetadata <- value
-  return(x)
-})
-
-#' Show method for FGTExperiment objects
-#'
-#' @param object An FGTExperiment object
-#'
-#' @return NULL (invisibly)
-#' @export
-setMethod("show", "FGTExperiment", function(object) {
-  callNextMethod()
-  cat("experimentType:", experimentType(object), "\n")
-  cat("fgtMetadata elements:", ifelse(length(fgtMetadata(object)) > 0, 
-                               paste(names(fgtMetadata(object)), collapse = ", "), 
-                               "none"), "\n")
-})
+  
+  # Update rowData if provided
+  if (!is.null(new_rowData)) {
+    rowData(result) <- new_rowData
+  }
+  
+  # Update colData if provided
+  if (!is.null(new_colData)) {
+    colData(result) <- new_colData
+  }
+  
+  # Update rowTree if provided
+  if (!is.null(new_rowTree)) {
+    rowTree(result) <- new_rowTree
+  }
+  
+  # Update experimentType if provided
+  if (!is.null(new_experimentType)) {
+    experimentType(result) <- new_experimentType
+  }
+  
+  # Update fgtMetadata if provided
+  if (!is.null(new_fgtMetadata)) {
+    fgtMetadata(result) <- new_fgtMetadata
+  }
+  
+  return(result)
+}
