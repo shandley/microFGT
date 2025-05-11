@@ -1,152 +1,115 @@
-# microFGT Next Development Steps
+# microFGT Implementation: Next Steps
 
-This document outlines the next steps for developing the microFGT package, following the Phase 1 and Phase 2 items from the engineering plan.
+Based on our assessment of Phase 2 of the engineering plan, this document outlines the specific next steps for the microFGT package development, focusing on the highest priority items.
 
-## Immediate Next Steps (1-2 weeks)
+## Priority 1: S4 Class Design
 
-### 1. Complete Git Workflow Setup
+### Task 1.1: Consolidate Class Definitions
+- Merge duplicated class definitions from `R/core/FGTExperiment-class.R` and `R/core/data_structures.R`
+- Keep only one comprehensive implementation
+- Ensure all methods are properly documented in a single file
 
-- [ ] Define branching strategy (develop with feature branches)
-- [ ] Create protected branches with required reviews
-- [ ] Configure issue and PR templates
-- [ ] Set up issue labeling system
+### Task 1.2: Implement Validation Methods
+- Add `setValidity()` for `FGTExperiment` class
+- Validate slot types and values:
+  - `experimentType` must be one of "amplicon", "metagenomic", or "integrated"
+  - `fgtMetadata` must be a SimpleList with valid contents
+- Add helpful error messages for invalid class construction
 
-### 2. Continuous Integration
+### Task 1.3: Add Coercion Methods
+- Implement `as()` and `coerce()` methods for:
+  - `FGTExperiment` to/from `TreeSummarizedExperiment`
+  - `FGTExperiment` to/from `SummarizedExperiment`
+  - `FGTExperiment` to/from `phyloseq` (if phyloseq is available)
+- Add thorough testing for coercion methods
 
-- [ ] Set up GitHub Actions workflow for package checks
-- [ ] Configure to test against multiple R versions (4.0, 4.1, devel)
-- [ ] Add OS matrix (Windows, macOS, Linux)
-- [ ] Create badge for CI status
+### Task 1.4: Standardize Constructor
+- Keep only the most comprehensive constructor implementation
+- Enhance error handling and input validation
+- Document constructor parameters extensively
+- Add examples covering different construction scenarios
 
-### 3. Code Quality Tools
+## Priority 2: Function Design Standardization
 
-- [ ] Set up lintr for static code analysis
-- [ ] Configure styler for automated code formatting
-- [ ] Implement pre-commit hooks
-- [ ] Add R CMD check GitHub Action
+### Task 2.1: Establish Parameter Naming Guidelines
+- Create a document defining standard parameter names:
+  - Use `fgt_exp` consistently for FGTExperiment objects
+  - Use snake_case for all parameter names
+  - Define standard names for common parameters
+  - Document parameter ordering (required then optional)
 
-### 4. Documentation Infrastructure
+### Task 2.2: Implement Consistent Error Handling
+- Create standardized error handling utilities in `R/utils/helpers.R`:
+  - Enhance `format_error()` function
+  - Add `validate_input()` function
+  - Add `check_required_param()` function
+- Update existing functions to use these utilities
 
-- [ ] Configure pkgdown for website generation
-- [ ] Set up auto-deployment of documentation on release
-- [ ] Create initial structure for vignettes
-- [ ] Add badges for CRAN status, license, and coverage
+### Task 2.3: Standardize Return Values
+- Define return value patterns:
+  - Functions modifying FGTExperiment should return FGTExperiment
+  - Functions extracting data should return consistent types
+  - Add operation metadata to track transformations
+- Document expected return types clearly
 
-## Short-term Goals (2-4 weeks)
+### Task 2.4: Implement Input Validation
+- Add comprehensive validation to:
+  - All core data manipulation functions
+  - Visualization functions
+  - Analysis functions
+- Use standardized validation utilities
 
-### 5. Function Documentation
+## Priority 3: Dependency Management
 
-- [ ] Ensure all functions have complete roxygen documentation
-- [ ] Add meaningful examples for each function
-- [ ] Document edge cases and limitations
-- [ ] Include parameter validation details
+### Task 3.1: Audit Dependencies
+- Create a document listing each dependency with:
+  - Purpose in the package
+  - Required functions/methods
+  - Whether it's essential or optional
+  - Minimum version required
 
-### 6. Testing Framework
+### Task 3.2: Optimize Import Structure
+- Move non-essential packages from Imports to Suggests:
+  - Review BiocParallel usage
+  - Assess tidyverse components
+  - Check visualization dependencies
+- Update DESCRIPTION file accordingly
 
-- [ ] Expand unit test coverage (aim for >80%)
-- [ ] Write tests for all exported functions
-- [ ] Add tests for internal utility functions
-- [ ] Test error conditions and edge cases
+### Task 3.3: Enhance Dependency Handling
+- Improve `check_package()` and `require_packages()` functions:
+  - Add version checking
+  - Provide more helpful installation instructions
+  - Implement caching to avoid repeated checks
+- Apply consistently throughout the package
 
-### 7. Class Design Improvements
+### Task 3.4: Implement Fallbacks
+- Add fallback functionality when optional packages are missing:
+  - Provide basic alternatives for visualization
+  - Add graceful degradation for advanced features
+  - Clearly document limitations when packages are missing
 
-- [ ] Review class hierarchy and relationships
-- [ ] Implement proper validation methods
-- [ ] Add coercion methods for compatibility
-- [ ] Create comprehensive class documentation
+## Implementation Schedule
 
-### 8. Dependency Management
+### Week 1: S4 Class Design
+- Days 1-2: Task 1.1 (Consolidate Class Definitions)
+- Days 3-4: Task 1.2 (Implement Validation Methods)
+- Day 5: Task 1.3 (Add Coercion Methods)
 
-- [ ] Audit all dependencies and justify each
-- [ ] Move non-essential packages to Suggests
-- [ ] Implement graceful fallbacks for optional dependencies
-- [ ] Specify minimum versions required
+### Week 2: Function Design & Constructor
+- Days 1-2: Task 1.4 (Standardize Constructor)
+- Day 3: Task 2.1 (Establish Parameter Naming Guidelines)
+- Days 4-5: Task 2.2 (Implement Consistent Error Handling)
 
-## Medium-term Goals (4-8 weeks)
+### Week 3: Continue Function Design & Dependencies
+- Days 1-2: Task 2.3 & 2.4 (Standardize Returns & Implement Input Validation)
+- Day 3: Task 3.1 (Audit Dependencies)
+- Days 4-5: Tasks 3.2 - 3.4 (Optimize Imports, Enhance Handling, Implement Fallbacks)
 
-### 9. Core Functionality Enhancement
+## Success Criteria
 
-- [ ] Implement additional community state typing methods
-- [ ] Add more data transformation functions
-- [ ] Develop more advanced visualization tools
-- [ ] Create comprehensive data import/export capabilities
+1. All duplicated class code is consolidated
+2. All functions have consistent parameter names and validation
+3. Dependencies are properly documented and managed
+4. All code passes R CMD check without warnings
 
-### 10. Performance Optimization
-
-- [ ] Identify performance bottlenecks
-- [ ] Create benchmarking suite
-- [ ] Optimize memory usage for large datasets
-- [ ] Add parallel processing options
-
-### 11. User Experience
-
-- [ ] Implement progress reporting for long operations
-- [ ] Add consistent messaging system
-- [ ] Create meaningful error messages
-- [ ] Add verbose mode for debugging
-
-### 12. Vignettes
-
-- [ ] Create "Getting Started" vignette
-- [ ] Add workflow vignettes for common tasks
-- [ ] Create advanced usage vignettes
-- [ ] Add troubleshooting guide
-
-## Long-term Goals (2-3 months)
-
-### 13. Scientific Validation
-
-- [ ] Document statistical methods in detail
-- [ ] Include citations for all implemented methods
-- [ ] Validate results against reference implementations
-- [ ] Document assumptions and limitations
-
-### 14. Bioconductor Submission Preparation
-
-- [ ] Ensure full compliance with Bioconductor guidelines
-- [ ] Implement biocViews correctly
-- [ ] Prepare for package review
-- [ ] Create Bioconductor-style vignettes
-
-### 15. Release Management
-
-- [ ] Define semantic versioning policy
-- [ ] Create release checklist
-- [ ] Establish release schedule
-- [ ] Configure automated release notes
-
-## Implementation Approach
-
-1. **Prioritize Critical Infrastructure**: First focus on CI/CD, testing, and documentation infrastructure to establish a solid development workflow.
-
-2. **Iterative Development**: Work in 1-2 week sprints, focusing on completing specific items from the engineering plan.
-
-3. **Test-Driven Development**: Write tests before implementing new features or fixing bugs.
-
-4. **Regular Code Reviews**: Conduct code reviews for all significant changes to maintain code quality.
-
-5. **Documentation as You Go**: Update documentation as features are implemented, rather than leaving it for later.
-
-## Task Prioritization
-
-When deciding which tasks to tackle first, consider:
-
-1. **Critical Path Items**: Focus on items that block other work
-2. **Risk Mitigation**: Address high-risk areas early
-3. **Quick Wins**: Implement easy high-impact items to build momentum
-4. **User Impact**: Prioritize changes that directly improve user experience
-5. **Technical Debt**: Balance new features with paying down technical debt
-
-## Required Resources
-
-- Developer time: Minimum 10 hours per week for steady progress
-- Testing environment: Access to different platforms (Windows, macOS, Linux)
-- Example datasets: Examples of FGT microbiome data at different scales
-- Domain expertise: Access to biology/microbiology expertise as needed
-
-## Success Metrics
-
-- Code coverage: Aim for >80% test coverage
-- Documentation completeness: 100% of exported functions documented
-- CI/CD stability: All tests pass on all platforms
-- Performance benchmarks: Establish baselines and track improvements
+Upon completion of these tasks, we will have a solid foundation for moving to Phase 3 of the engineering plan, focusing on the comprehensive testing framework.
