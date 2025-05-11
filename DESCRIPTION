@@ -1,7 +1,7 @@
 Package: microFGT
 Title: Comprehensive Analysis of Female Genital Tract Microbiome Data
 Version: 0.1.0
-Authors@R: 
+Authors@R:
     person("Scott", "Handley", , "scott.handley@example.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0000-0000-0000"))
 Description: An integrated framework for analyzing microbiome data from the female
@@ -18,6 +18,7 @@ biocViews: Microbiome, Sequencing, Metagenomics, Classification, Visualization
 URL: https://github.com/shandley/microFGT
 BugReports: https://github.com/shandley/microFGT/issues
 VignetteBuilder: knitr
+Config/testthat/edition: 3
 Depends:
     R (>= 4.1.0)
 Imports:
@@ -25,24 +26,24 @@ Imports:
     S4Vectors,
     SummarizedExperiment,
     TreeSummarizedExperiment,
-    Biostrings,
     BiocParallel,
+    Biostrings,
     dplyr,
-    tibble,
     ggplot2,
     magrittr,
+    Rcpp (>= 1.0.5),
     stats,
-    utils,
-    Rcpp (>= 1.0.5)
+    tibble,
+    utils
 Suggests:
-    testthat (>= 3.0.0),
-    knitr,
-    rmarkdown,
+    ape,
     BiocStyle,
-    phyloseq,
     dada2,
     DESeq2,
-    vegan,
-    ape
-LinkingTo: 
+    knitr,
+    phyloseq,
+    rmarkdown,
+    testthat (>= 3.0.0),
+    vegan
+LinkingTo:
     Rcpp

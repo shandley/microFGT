@@ -1,6 +1,6 @@
 # microFGT News
 
-## microFGT 0.1.0 (2023-05-10)
+## microFGT 0.1.0 (Development)
 
 ### Major Changes
 
@@ -26,9 +26,22 @@
   * `generate_fgt_example_data()` for synthetic data generation
 * Included comprehensive documentation and vignettes
 
+### Structural Improvements
+
+* Reorganized code files by functionality:
+  * `R/core/`: Core class definitions and constructors
+  * `R/data/`: Data manipulation and import/export
+  * `R/utils/`: Utility functions
+  * `R/visualization/`: Plotting and visualization
+  * `R/constants/`: Package constants
+* Consolidated duplicate example data functions
+* Moved development documents to development/ directory
+* Added CONTRIBUTING.md with contributor guidelines
+
 ### Internal Changes
 
 * Added R package infrastructure
 * Implemented proper documentation using roxygen2
 * Added unit tests with testthat
 * Created example datasets for testing and demonstrations
+* Added helper utility functions for consistent error handling

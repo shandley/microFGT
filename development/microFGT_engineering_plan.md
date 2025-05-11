@@ -44,6 +44,10 @@ This document outlines a systematic approach to implementing software engineerin
 - [ ] Organize files by functional area
 - [ ] Apply consistent formatting to all files
 - [ ] Review and refactor internal helper functions
+- [ ] Reduce code duplication across similar functionality
+- [ ] Consolidate example data functions (example_data.R, generate_example_data.R, etc.)
+- [ ] Move R/example_data/constants.R to R/constants.R for simplicity
+- [ ] Group files by functionality (data structures, manipulation, visualization)
 
 ### 2.2 S4 Class Design
 
