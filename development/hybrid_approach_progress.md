@@ -34,46 +34,56 @@ The hybrid approach implementation is approximately 75% complete. We have:
 
 ## Next Steps
 
-### Priority 1: Complete Core Functionality
+### Priority 1: Advanced Analysis Functions
 
-#### Task 1.1: Data Import/Export Functions
-- [x] Create universal import functions for common microbiome data formats
-- [x] Implement export functions for results and data
-- [x] Add conversion utilities to/from phyloseq, DADA2, etc.
+#### Task 1.1: Differential Abundance Testing (High Priority)
+- [ ] Implement limma-voom method for differential abundance
+- [ ] Add DESeq2 wrapper for count-based testing
+- [ ] Create ANCOM-BC implementation for compositional data
+- [ ] Implement visualization functions for differential abundance results
 
-#### Task 1.2: Advanced Analysis Functions
-- [ ] Add differential abundance testing
-- [ ] Implement community network analysis
-- [ ] Create functions for microbiome biomarker detection
+#### Task 1.2: Biomarker Detection (Medium-High Priority)
+- [ ] Implement random forest feature importance for biomarker detection
+- [ ] Add LEfSe-like algorithm for effect size analysis
+- [ ] Create biomarker visualization functions
+- [ ] Implement validation methods for biomarkers
 
-#### Task 1.3: Batch Processing Functions
-- [ ] Add functions for processing multiple samples/cohorts
-- [ ] Implement progress tracking and logging
-- [ ] Develop parallelization options
+#### Task 1.3: Network Analysis (Medium Priority)
+- [ ] Implement SparCC for compositional data correlation
+- [ ] Add network construction and visualization functions
+- [ ] Create functions for identifying key taxa in networks
+- [ ] Implement network comparison between conditions
 
 ### Priority 2: Documentation and Usability
 
-#### Task 2.1: Update Package Documentation
-- [ ] Create comprehensive vignettes showing the hybrid approach
-- [ ] Update README and function documentation
-- [ ] Add examples that work with both FGTExperiment and SummarizedExperiment
+#### Task 2.1: Create Comprehensive Vignettes (High Priority)
+- [ ] "Getting Started with microFGT" vignette
+- [ ] "Working with Taxonomic Data" vignette
+- [ ] "Diversity Analysis" vignette
+- [ ] "Importing and Exporting Data" vignette
+- [ ] "Advanced Analysis" vignette for differential abundance and biomarkers
 
-#### Task 2.2: User Interface Improvements
-- [ ] Create wrapper functions for common analysis workflows
-- [ ] Add progress bars and status reporting
-- [ ] Implement data validation and quality control utilities
+#### Task 2.2: Workflow Integration (Medium Priority)
+- [ ] Create high-level workflow functions for common analysis pipelines
+- [ ] Implement preset parameters for FGT-specific analyses
+- [ ] Add reporting functions for analysis summaries
+- [ ] Create quality control and validation utilities
 
-### Priority 3: Testing and Validation
+### Priority 3: Performance and Validation
 
-#### Task 3.1: Expand Test Coverage
-- [ ] Increase test coverage to >80%
-- [ ] Add integration tests for complete workflows
-- [ ] Create performance tests for larger datasets
+#### Task 3.1: Performance Optimization (Medium Priority)
+- [ ] Add BiocParallel support for compute-intensive functions
+- [ ] Implement batch processing for multiple datasets
+- [ ] Add sparse matrix support for large datasets
+- [ ] Create memory-efficient versions of key algorithms
 
-#### Task 3.2: Real-World Validation
+#### Task 3.2: Real-World Validation (Medium-High Priority)
 - [ ] Test with published FGT microbiome datasets
-- [ ] Validate results against established methods
-- [ ] Document benchmarking results
+- [ ] Benchmark against established tools (phyloseq, qiime2)
+- [ ] Document validation in case studies
+- [ ] Create reproducible examples with public datasets
+
+Detailed implementation plans for Phase 3 are available in [implementation_plan_phase3.md](implementation_plan_phase3.md).
 
 ## Success Criteria
 
@@ -86,5 +96,5 @@ The hybrid approach implementation is approximately 75% complete. We have:
 
 - **Phase 1 (Complete)**: Core architecture and basic functions
 - **Phase 2 (Complete)**: Taxonomic, diversity, and visualization functions
-- **Phase 3 (Current)**: Data import/export and advanced analysis
+- **Phase 3 (Current)**: Advanced analysis functions
 - **Phase 4 (Next)**: Documentation, testing, and validation

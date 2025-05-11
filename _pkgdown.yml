@@ -1,94 +1,86 @@
-url: https://shandley.github.io/microFGT/
+url: https://shandley.github.io/microFGT
 
 template:
   bootstrap: 5
   bootswatch: flatly
   bslib:
     primary: "#0054AD"
-    secondary: "#7B6D8D"
-    success: "#5D8060"
-    info: "#5B8DB8"
-    warning: "#D8AC48"
-    danger: "#B94D47"
-  includes:
-    in_header: |
-      <!-- Google tag (gtag.js) -->
-      <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
-      <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-XXXXXXXXXX');
-      </script>
+    border-radius: 0.5rem
+    btn-border-radius: 0.25rem
+
+development:
+  mode: auto
 
 navbar:
   structure:
-    left: [intro, reference, articles, news]
+    left:  [intro, reference, articles, tutorials, news]
     right: [search, github]
   components:
-    intro:
-      text: Get started
-      href: articles/microFGT-introduction.html
+    home: ~
     reference:
-      text: Reference
+      text: Functions
       href: reference/index.html
     articles:
       text: Articles
       menu:
-      - text: Introduction to microFGT
+      - text: Getting Started
         href: articles/microFGT-introduction.html
-      - text: Working with FGTExperiment
-        href: articles/working-with-fgtexperiment.html
       - text: Using Example Data
         href: articles/using_example_data.html
-    news:
-      text: News
-      href: news/index.html
+    github:
+      icon: fab fa-github fa-lg
+      href: https://github.com/shandley/microFGT
 
 reference:
-  - title: "Core Classes"
-    desc: "Core classes for working with FGT microbiome data"
-    contents:
-      - FGTExperiment-class
-  - title: "Data Manipulation"
-    desc: "Functions for manipulating FGT microbiome data"
-    contents:
-      - matches("transform")
-      - matches("filter")
-      - matches("aggregate")
-  - title: "Data Import & Export"
-    desc: "Functions for importing and exporting data"
-    contents:
-      - matches("import")
-      - matches("export")
-      - matches("read")
-      - matches("write")
-  - title: "Taxonomic Analysis"
-    desc: "Functions for taxonomic analysis"
-    contents:
-      - matches("taxonomic")
-      - matches("taxa")
-  - title: "Visualization"
-    desc: "Functions for visualizing data"
-    contents:
-      - matches("plot")
-      - matches("visualiz")
-  - title: "Example Data"
-    desc: "Functions for working with example data"
-    contents:
-      - matches("example")
-      - matches("load_example")
-      - matches("generate")
-  - title: "Utilities"
-    desc: "Utility functions"
-    contents:
-      - matches("check")
-      - matches("validate")
-      - matches("util")
+- title: Core Functions
+  desc: >
+    Main functions for microFGT experiment creation and manipulation
+  contents:
+  - create_fgt
+  - FGTExperiment
+  - transform_counts
+  - filter_features
 
-authors:
-  Scott Handley:
-    href: https://github.com/shandley
+- title: Taxonomic Functions
+  desc: >
+    Functions for working with taxonomic data
+  contents:
+  - aggregate_taxa
+  - get_taxonomic_ranks
+  - normalize_taxonomy
+  - create_tax_strings
+  - parse_tax_strings
 
-development:
-  mode: auto
+- title: Diversity Functions
+  desc: >
+    Functions for calculating ecological diversity metrics
+  contents:
+  - calculate_diversity
+  - calculate_beta_diversity
+
+- title: Import/Export Functions
+  desc: >
+    Functions for importing and exporting data
+  contents:
+  - import_microbiome
+  - import_from_dada2
+  - import_from_biom
+  - import_from_phyloseq
+  - export_microbiome
+  - to_phyloseq
+  - to_biom
+
+- title: Data Functions
+  desc: >
+    Functions for accessing and working with example data
+  contents:
+  - load_example_data
+  - generate_fgt_example_data
+
+- title: Helper Functions
+  desc: >
+    Utility and helper functions
+  contents:
+  - is_fgt
+  - get_experiment_type
+  - get_fgt_metadata
