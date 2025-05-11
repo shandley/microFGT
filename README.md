@@ -2,6 +2,13 @@
 
 <img src="inst/extdata/microFGT_logo.png" alt="microFGT Logo" width="150" align="right"/>
 
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/shandley/microFGT/workflows/R-CMD-check/badge.svg)](https://github.com/shandley/microFGT/actions)
+[![Codecov test coverage](https://codecov.io/gh/shandley/microFGT/branch/main/graph/badge.svg)](https://codecov.io/gh/shandley/microFGT?branch=main)
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<!-- badges: end -->
+
 ## Overview
 
 microFGT is an integrated R package for comprehensive analysis of female genital tract (FGT) microbiome data. This package unifies specialized tools (dada2, phyloseq, speciateIT, VALENCIA, and VIRGO) within a cohesive framework that handles both amplicon and metagenomic sequencing data.
@@ -11,10 +18,11 @@ microFGT is an integrated R package for comprehensive analysis of female genital
 ## Features
 
 - Built on TreeSummarizedExperiment data structure
-- Integrates with FGT-specific analysis tools
+- Specialized `FGTExperiment` class for FGT microbiome analysis
+- Community State Type (CST) identification and analysis 
 - Supports both amplicon and metagenomic data
 - Includes realistic example datasets for FGT microbiomes
-- Simulates community state types (CSTs) with appropriate taxonomic profiles
+- Simulates CSTs with appropriate taxonomic profiles
 - Compatible with Bioconductor ecosystem
 - Follows tidyverse design principles
 
@@ -121,10 +129,27 @@ For detailed documentation and tutorials, please see the package vignettes:
 browseVignettes("microFGT")
 ```
 
+## Pipeline Overview
+
+<img src="man/figures/microFGT_workflow.png" alt="microFGT Workflow" width="700"/>
+
 ## Contributing
 
-Contributions to microFGT are welcome! Please feel free to submit a pull request or open an issue on GitHub.
+Contributions to microFGT are welcome! Please see our [Contributing Guidelines](CONTRIBUTING.md) for more details on how to submit issues, feature requests, and pull requests.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Citation
+
+If you use microFGT in your research, please cite as:
+
+```
+Handley, S. (2023). microFGT: Comprehensive Analysis of Female Genital Tract Microbiome Data. GitHub repository, https://github.com/shandley/microFGT
+```
+
+## Acknowledgments
+
+- The microFGT package builds upon the excellent [TreeSummarizedExperiment](https://bioconductor.org/packages/release/bioc/html/TreeSummarizedExperiment.html) package from Bioconductor
+- We thank the community of researchers in the field of female genital tract microbiome research for their feedback and suggestions
