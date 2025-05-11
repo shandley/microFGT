@@ -2,20 +2,13 @@ name: Package Integrity Check
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main, develop]
-    paths:
-      - "R/**"
-      - "NAMESPACE"
-      - "DESCRIPTION"
-      - ".github/workflows/package-integrity-check.yaml"
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - "R/**"
-      - "NAMESPACE"
-      - "DESCRIPTION"
-      - ".github/workflows/package-integrity-check.yaml"
+  workflow_call:
+    inputs:
+      should_run:
+        description: 'Whether this workflow should run'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,6 +18,7 @@ jobs:
   integrity-check:
     name: Package Integrity Check
     runs-on: ubuntu-22.04
+    if: ${{ inputs.should_run || github.event_name == 'workflow_dispatch' }}
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
