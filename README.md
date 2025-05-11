@@ -11,20 +11,29 @@
 
 ## Overview
 
-microFGT is an integrated R package for comprehensive analysis of female genital tract (FGT) microbiome data. This package unifies specialized tools (dada2, phyloseq, speciateIT, VALENCIA, and VIRGO) within a cohesive framework that handles both amplicon and metagenomic sequencing data.
+microFGT is an integrated R package for comprehensive analysis of female genital tract (FGT) microbiome data. This package unifies specialized tools for microbiome analysis within a cohesive framework that handles both amplicon and metagenomic sequencing data.
 
 > 🚧 **ALPHA STAGE SOFTWARE**: This package is in early development and not ready for production use. APIs may change, functions may not work as expected, and documentation may be incomplete.
 
 ## Features
 
-- Built on TreeSummarizedExperiment data structure
-- Specialized `FGTExperiment` class for FGT microbiome analysis
-- Community State Type (CST) identification and analysis 
-- Supports both amplicon and metagenomic data
-- Includes realistic example datasets for FGT microbiomes
-- Simulates CSTs with appropriate taxonomic profiles
-- Compatible with Bioconductor ecosystem
-- Follows tidyverse design principles
+- **Hybrid Architecture**:
+  - Minimal S4 class layer for Bioconductor compatibility
+  - Function-centric design for core functionality
+  - S3 methods for visualization
+- **Universal Compatibility**:
+  - Works with SummarizedExperiment objects
+  - Extended functionality with FGTExperiment objects
+  - Seamless integration with the Bioconductor ecosystem
+- **Comprehensive Analysis Tools**:
+  - Taxonomic aggregation and manipulation
+  - Diversity calculation and visualization
+  - Data transformation and normalization
+  - Community composition analysis
+- **Beginner-Friendly**:
+  - Includes realistic example datasets
+  - Clear documentation and examples
+  - Progressive complexity for different user levels
 
 ## Installation
 
@@ -51,12 +60,12 @@ devtools::install_github("shandley/microFGT", dependencies = TRUE)
 
 ### Using Example Data
 
-microFGT includes built-in example data that simulates realistic FGT microbiome profiles. This is a great way to explore the package's functionality without needing your own data:
+microFGT includes built-in example data that simulates realistic FGT microbiome profiles:
 
 ```r
 library(microFGT)
 
-# Load pre-built example dataset (returns an FGTExperiment object)
+# Load pre-built example dataset
 fgt_exp <- load_example_data(size = "small", type = "amplicon")
 
 # View basic information about the dataset
@@ -64,61 +73,79 @@ fgt_exp
 
 # See sample metadata
 colData(fgt_exp)[, c("condition", "pH", "Nugent_Score")]
-
-# Transform to relative abundance
-fgt_rel <- transform_abundance(fgt_exp, type = "relative", assay_name = "counts")
-
-# Plot taxonomic composition
-plot_taxa_composition(fgt_rel, rank = "Phylum", top_n = 5, group_var = "condition")
-
-# Calculate and plot alpha diversity
-plot_alpha_diversity(fgt_exp, metrics = c("shannon"), group_var = "condition")
 ```
 
-### Generate Custom Example Data
+### Function-Based Analysis
 
-You can also generate custom example data with specific properties:
+The hybrid approach allows you to analyze data with straightforward functions:
 
 ```r
-# Generate a dataset with specific community state types
-custom_data <- generate_fgt_example_data(
-  n_samples = 20,
-  n_features = 100,
-  sample_groups = c("Healthy", "BV", "Intermediate"),
-  group_proportions = c(0.5, 0.3, 0.2),
-  community_types = c("CST-I", "CST-III", "CST-IV"),
-  format = "FGTExperiment"
-)
+# Start with any SummarizedExperiment-like object
+se <- load_example_data()
 
-# Explore different community state types
-custom_rel <- transform_abundance(custom_data, type = "relative")
-plot_taxa_composition(custom_rel, rank = "Genus", top_n = 8, 
-                      group_var = "community_state_type")
+# Transform data with standalone functions
+se <- transform_abundance(se, method = "relative", assay_name = "counts")
+
+# Aggregate at genus level
+genus_level <- aggregate_taxa(se, rank = "Genus")
+
+# Calculate diversity
+div_results <- calculate_diversity(genus_level, method = "shannon")
+
+# Create a customized plot
+plot_composition(genus_level, level = "Genus", top_n = 10)
 ```
 
-### Using Your Own Data
-
-If you have your own data, you can import it from common formats:
+### Working with Taxonomic Data
 
 ```r
-library(microFGT)
+# Load example data
+se <- load_example_data()
 
-# Import data from dada2
-seqtab <- readRDS("seqtab.rds")
-taxa <- readRDS("taxa.rds")
-metadata <- read.csv("metadata.csv", row.names = 1)
+# Clean up taxonomy
+se <- normalize_taxonomy(se)
 
-# Create FGTExperiment object
-fgt_exp <- import_dada2(seqtab, taxa, metadata)
+# Get available taxonomic ranks
+ranks <- get_taxonomic_ranks(se)
+print(ranks)
 
-# Filter and transform data
-fgt_exp <- fgt_exp %>%
-  filter_taxa(min_prevalence = 0.1, min_abundance = 0.001) %>%
-  transform_abundance(type = "relative")
+# Aggregate at phylum level
+phylum_level <- aggregate_taxa(se, rank = "Phylum")
 
-# Plot taxonomic composition
-plot_taxa_composition(fgt_exp, rank = "Genus", top_n = 10, 
-                     group_var = "subject_group")
+# Create formatted taxonomy strings
+phylum_level <- create_tax_strings(phylum_level, format = "lineage")
+```
+
+### Import and Export Data
+
+```r
+# Import from various formats
+se <- import_microbiome("counts.csv", "taxonomy.csv", "metadata.csv")
+
+# Import from DADA2 results
+se <- import_from_dada2("seqtab.rds", "taxa.rds", "metadata.csv")
+
+# Export to QIIME2 format
+export_microbiome(se, "output_dir", format = "qiime2")
+
+# Export to phyloseq format
+export_microbiome(se, "output_dir", format = "phyloseq")
+
+# Convert to phyloseq object for further analysis
+ps <- to_phyloseq(se)
+```
+
+### Calculate Diversity
+
+```r
+# Calculate alpha diversity
+shannon <- calculate_diversity(se, method = "shannon")
+simpson <- calculate_diversity(se, method = "simpson")
+richness <- calculate_diversity(se, method = "richness")
+
+# Calculate beta diversity
+bray_dist <- calculate_beta_diversity(se, method = "bray")
+jaccard_dist <- calculate_beta_diversity(se, method = "jaccard")
 ```
 
 ## Documentation
@@ -129,9 +156,19 @@ For detailed documentation and tutorials, please see the package vignettes:
 browseVignettes("microFGT")
 ```
 
-## Pipeline Overview
+## Architecture
 
-<img src="man/figures/microFGT_workflow.png" alt="microFGT Workflow" width="700"/>
+microFGT uses a hybrid approach that combines:
+
+1. **Minimal S4 Classes**: A thin layer extending TreeSummarizedExperiment for Bioconductor compatibility
+2. **Standalone Functions**: Core functionality implemented as independent functions
+3. **S3 Methods**: Visualization and common operations using S3 method dispatch
+
+This design offers several advantages:
+- Easier testing and maintenance
+- Better interoperability with other packages
+- Reduced complexity for users
+- Progressive learning curve
 
 ## Contributing
 
