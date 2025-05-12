@@ -8,6 +8,17 @@
 .Rapp.history
 .Renviron
 .Rprofile
+..Rcheck/
+*.Rcheck/
+src/*.o
+src/*.so
+src/*.dll
+src/symbols.rds
+R/RcppExports.R
+src/RcppExports.cpp
+vignettes/*.R
+vignettes/.build.timestamp
+inst/doc
 
 # Build artifacts
 *.o
@@ -50,9 +61,21 @@ tmp/
 *.log
 *.tmp
 *.bak
+verify-installation.R
+debug_transform.R
+test_*.R
+*_test.R
+test-*.R
+final_test.R
+final_verification.R
+direct_test_fix.R
+direct_transform_fix.R
+simple_test.R
+manual-export.R
 
 # Test artifacts
 tests/testthat/Rplots.pdf
+tests/testthat/legacy_tests/
 
 # Documentation generated files
 vignettes/*.html
@@ -63,9 +86,22 @@ vignettes/*.R
 *.backup
 backup/
 *_backup_*
+R-rebuild/
+R/legacy_code/
 
 # Compiled package
 microFGT_*.tar.gz
 
 # Generated data
 data-raw/private/
+
+# Rebuild documentation files
+CLEANUP_PLAN.md
+CLEANUP_PROGRESS.md
+CONSOLIDATION_SUMMARY.md
+CURRENT_STATUS.md
+FUNCTION_INVENTORY.md
+INTEGRATION_FUNCTIONS_FIXES.md
+TRANSFORM_COUNTS_CHANGES.md
+TRANSFORM_COUNTS_TEST_UPDATES.md
+planning/rebuild_summary.md
