@@ -10,6 +10,7 @@ This document tracks the status of the microFGT package rebuild. The package has
 - Implementation of mock data generators for SpeciateIT, VIRGO, and VALENCIA
 - Updated CI/CD workflows and package validation
 - Improved transformation function implementation
+- **NEW**: Integrated R-rebuild code with compositional class design
 
 ## Main Components
 
@@ -17,6 +18,7 @@ This document tracks the status of the microFGT package rebuild. The package has
    - S4 Class Structure: FGTExperiment class
    - Constructor and accessor methods
    - Data structure validation
+   - Improved composition-based architecture
 
 2. **Mock Data Generators**
    - SpeciateIT mock data generator
@@ -37,6 +39,8 @@ This document tracks the status of the microFGT package rebuild. The package has
 - [ ] Create comprehensive vignettes with usage examples
 - [ ] Add additional validation checks for input data
 - [ ] Implement any remaining functionality from the planning documents
+- [ ] Run full test suite with new compositional class structure
+- [ ] Update existing functions to work with new class design
 
 ## Recently Completed
 
@@ -44,6 +48,28 @@ This document tracks the status of the microFGT package rebuild. The package has
 - [x] Clean up repository files and update .gitignore
 - [x] Create mock data generators for all three tools
 - [x] Implement proper S4 class structure following best practices
+- [x] Integrate R-rebuild code into main codebase
+- [x] Create migration function for converting legacy FGTExperiment objects
+- [x] Implement compositional class design (containing not extending TSE)
+- [x] Add transformAbundance generic and methods
+
+## Architectural Changes
+
+### New Compositional Class Design
+
+The FGTExperiment class has been redesigned to use composition rather than inheritance:
+
+**Previous Design (Inheritance):**
+- FGTExperiment extends TreeSummarizedExperiment
+- Direct access to TSE slots and methods
+
+**New Design (Composition):**
+- FGTExperiment contains a TreeSummarizedExperiment
+- Better encapsulation and separation of concerns
+- More robust method dispatch
+- Simplified validation
+
+This architectural change provides better flexibility and maintainability while still preserving the core functionality and API.
 
 ## Directory Structure
 

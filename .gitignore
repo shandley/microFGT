@@ -63,15 +63,19 @@ tmp/
 *.bak
 verify-installation.R
 debug_transform.R
-test_*.R
-*_test.R
-test-*.R
+/test_*.R
+/*_test.R
+/test-*.R
 final_test.R
 final_verification.R
 direct_test_fix.R
 direct_transform_fix.R
 simple_test.R
 manual-export.R
+
+# Keep proper test files in tests/testthat/ directory
+!tests/testthat/test_*.R
+!tests/testthat/test-*.R
 
 # Test artifacts
 tests/testthat/Rplots.pdf
@@ -105,3 +109,8 @@ INTEGRATION_FUNCTIONS_FIXES.md
 TRANSFORM_COUNTS_CHANGES.md
 TRANSFORM_COUNTS_TEST_UPDATES.md
 planning/rebuild_summary.md
+
+# Backup files from integration process
+R/core/backup/
+**/legacy_code/
+*.bak
