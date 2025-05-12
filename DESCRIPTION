@@ -1,19 +1,18 @@
 Package: microFGT
-Title: Comprehensive Analysis of Female Genital Tract Microbiome Data
+Title: Integrated Analysis of Female Genital Tract Microbiome Data
 Version: 0.1.0
-Authors@R:
-    person("Scott", "Handley", , "scott.handley@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "0000-0000-0000-0000"))
+Author: Scott Handley [aut, cre]
+Maintainer: Scott Handley <scott.handley@example.com>
 Description: An integrated framework for analyzing microbiome data from the female
-    genital tract (FGT). This package unifies specialized tools (dada2, phyloseq,
-    speciateIT, VALENCIA, and VIRGO) within a cohesive framework that handles both
-    amplicon and metagenomic sequencing data. Built on TreeSummarizedExperiment
-    with tidyverse design principles, it provides specialized functionality for
-    FGT microbiome research including community state typing and multi-omics integration.
+    genital tract (FGT). This package provides a streamlined data structure for FGT
+    microbiome analysis with specialized support for integrating outputs from speciateIT,
+    VALENCIA, and VIRGO. Focused on simplicity and usability, it offers a clean API
+    for transformation, analysis, and visualization of microbiome data. Now includes
+    realistic mock data generators for testing and development.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2
 biocViews: Microbiome, Sequencing, Metagenomics, Classification, Visualization
 URL: https://github.com/shandley/microFGT
 BugReports: https://github.com/shandley/microFGT/issues
@@ -23,27 +22,19 @@ Depends:
     R (>= 4.1.0)
 Imports:
     methods,
-    S4Vectors,
-    SummarizedExperiment,
-    TreeSummarizedExperiment,
-    BiocParallel,
-    Biostrings,
-    dplyr,
-    ggplot2,
-    magrittr,
-    Rcpp (>= 1.0.5),
     stats,
+    utils,
+    grDevices,
+    graphics,
+    ggplot2,
     tibble,
-    utils
+    dplyr,
+    magrittr,
+    Rcpp
 Suggests:
-    ape,
-    BiocStyle,
-    dada2,
-    DESeq2,
-    knitr,
-    phyloseq,
-    rmarkdown,
     testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
     vegan
 LinkingTo:
     Rcpp
