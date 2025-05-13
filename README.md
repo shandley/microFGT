@@ -35,6 +35,11 @@ microFGT is an integrated R package for comprehensive analysis of female genital
   - Realistic example datasets
   - Clear documentation and examples
   - Compatible with the Bioconductor ecosystem
+- **Robust Testing Framework**:
+  - Comprehensive test coverage across all functionality
+  - Performance benchmarking and optimization
+  - Integration tests for end-to-end workflows
+  - Automated test reporting and quality metrics
 
 ## Installation
 
@@ -141,6 +146,23 @@ For detailed documentation and tutorials, please see the package vignettes:
 browseVignettes("microFGT")
 ```
 
+### Testing Infrastructure
+
+microFGT includes a comprehensive testing framework:
+
+```r
+# Run all tests with enhanced reporting
+source("path/to/run_all_tests_enhanced.R")
+
+# Run specific test categories
+run_test_category("core")
+run_test_category("integration")
+run_test_category("performance")
+
+# Generate test reports
+source("path/to/generate_test_report.R")
+```
+
 ## Contributing
 
 Contributions to microFGT are welcome! Please see our [Contributing Guidelines](CONTRIBUTING.md) for more details on how to submit issues, feature requests, and pull requests.
@@ -154,7 +176,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use microFGT in your research, please cite as:
 
 ```
-Handley, S. (2023). microFGT: Comprehensive Analysis of Female Genital Tract Microbiome Data. GitHub repository, https://github.com/shandley/microFGT
+Handley, S. (2023-2025). microFGT: Comprehensive Analysis of Female Genital Tract Microbiome Data. GitHub repository, https://github.com/shandley/microFGT
 ```
 
 ## Acknowledgments
