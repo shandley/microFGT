@@ -53,7 +53,7 @@ setGeneric("transformAbundance", function(object, type = "relative", assay_name 
 
 # Define TreeSummarizedExperiment generics with proper signatures
 #' @export
-setGeneric("rowTree", function(x, ...) standardGeneric("rowTree"))
+setGeneric("rowTree", function(x) standardGeneric("rowTree"))
 
 # Create generics for base functions if they don't exist
 if (!isGeneric("rownames")) {

@@ -30,7 +30,10 @@ Imports:
     tibble,
     dplyr,
     magrittr,
-    Rcpp
+    Rcpp,
+    TreeSummarizedExperiment,
+    S4Vectors,
+    SummarizedExperiment
 Suggests:
     testthat (>= 3.0.0),
     knitr,
@@ -38,3 +41,13 @@ Suggests:
     vegan
 LinkingTo:
     Rcpp
+Collate:
+    'AllGenerics.R'
+    'FGTExperiment-complete.R'
+    'RcppExports.R'
+    'direct_implementation.R'
+    'legacy_exports.R'
+    'microFGT-package.R'
+    'mock_data.R'
+    'transform_fix.R'
+    'zzz.R'
