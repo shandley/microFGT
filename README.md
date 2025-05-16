@@ -1,6 +1,6 @@
 # microFGT: Comprehensive Analysis of Female Genital Tract Microbiome Data
 
-<img src="inst/extdata/microFGT_logo.png" alt="microFGT Logo" width="150" align="right"/>
+<img src="inst/extdata/microFGT_Flower.png" alt="microFGT Logo" width="150" align="right"/>
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/shandley/microFGT/workflows/R-CMD-check/badge.svg)](https://github.com/shandley/microFGT/actions)
