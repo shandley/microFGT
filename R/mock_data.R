@@ -711,51 +711,35 @@ write_mock_virgo <- function(dir_path, base_name, ...) {
   if (!dir.exists(dir_path)) {
     dir.create(dir_path, recursive = TRUE)
   }
-  
+
   # Generate mock data
   virgo_data <- generate_mock_virgo(...)
-  
-  # Write test.out file (primary result)
-  test_out_path <- file.path(dir_path, paste0(base_name, "_test.out"))
+  counts <- virgo_data$counts                                  # genes x samples
+  glen   <- setNames(virgo_data$genes$length, virgo_data$genes$gene_id)
+
+  # REAL VIRGO shape: one file PER SAMPLE, <sample>.out, NO header, 3 columns
+  # (geneID, read_count, gene_length); only nonzero genes. Sample = filename.
+  for (s in colnames(counts)) {
+    v  <- counts[, s]
+    nz <- which(v > 0)
+    out <- data.frame(
+      gene_id     = rownames(counts)[nz],
+      read_count  = as.integer(v[nz]),
+      gene_length = as.integer(glen[rownames(counts)[nz]])
+    )
+    write.table(
+      out, file = file.path(dir_path, paste0(s, ".out")),
+      sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE
+    )
+  }
+
+  # Gene-length catalog (VIRGO ships this globally as 0.geneLength.txt)
   write.table(
-    virgo_data$test_out,
-    file = test_out_path,
-    sep = "\t",
-    quote = FALSE,
-    row.names = FALSE
+    data.frame(virgo_data$genes$gene_id, virgo_data$genes$length),
+    file = file.path(dir_path, "0.geneLength.txt"),
+    sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE
   )
-  
-  # Write genes metadata
-  genes_path <- file.path(dir_path, paste0(base_name, "_genes.txt"))
-  write.table(
-    virgo_data$genes,
-    file = genes_path,
-    sep = "\t",
-    quote = FALSE,
-    row.names = FALSE
-  )
-  
-  # Write sample metadata
-  metadata_path <- file.path(dir_path, paste0(base_name, "_metadata.txt"))
-  write.table(
-    virgo_data$metadata,
-    file = metadata_path,
-    sep = "\t",
-    quote = FALSE,
-    row.names = FALSE
-  )
-  
-  # Write count matrix as TSV
-  counts_path <- file.path(dir_path, paste0(base_name, "_counts.tsv"))
-  write.table(
-    virgo_data$counts,
-    file = counts_path,
-    sep = "\t",
-    quote = FALSE,
-    row.names = TRUE,
-    col.names = TRUE
-  )
-  
+
   return(invisible(dir_path))
 }
 
@@ -1090,45 +1074,55 @@ generate_mock_valencia <- function(
 #' temp_dir <- tempdir()
 #' output_dir <- write_mock_valencia(temp_dir, "mock_valencia", n_samples = 15)
 #' }
+# The 13 VALENCIA sub-CSTs and a map from the mock's coarser CSTs onto them.
+.valencia_subcsts <- c("I-A", "I-B", "II", "III-A", "III-B", "IV-A", "IV-B",
+                       "IV-C0", "IV-C1", "IV-C2", "IV-C3", "IV-C4", "V")
+.valencia_cst_to_subcst <- c("I" = "I-A", "II" = "II", "III" = "III-A",
+                             "IV-A" = "IV-A", "IV-B" = "IV-B", "IV-C" = "IV-C0",
+                             "V" = "V")
+
+# Build the REAL VALENCIA output shape: one wide data frame =
+# sampleID, read_count, <taxa...>, <subCST>_sim x13, subCST, score, CST.
+valencia_wide_output <- function(valencia_data) {
+  samples <- valencia_data$cst$Sample
+  cst     <- valencia_data$cst$CST
+  sub     <- unname(.valencia_cst_to_subcst[cst]); sub[is.na(sub)] <- "IV-C0"
+
+  ab <- as.matrix(valencia_data$abundance)             # samples x taxa (relative)
+  read_count <- rep(10000L, length(samples))           # synthetic total reads
+
+  sim <- matrix(0.0125, nrow = length(samples), ncol = length(.valencia_subcsts),
+                dimnames = list(NULL, paste0(.valencia_subcsts, "_sim")))
+  for (i in seq_along(samples)) sim[i, paste0(sub[i], "_sim")] <- 0.85
+  score <- apply(sim, 1, max)
+
+  data.frame(
+    sampleID = samples, read_count = read_count,
+    as.data.frame(ab,  check.names = FALSE),
+    as.data.frame(sim, check.names = FALSE),
+    subCST = sub, score = score, CST = cst,
+    check.names = FALSE, row.names = NULL
+  )
+}
+
 write_mock_valencia <- function(dir_path, base_name, ...) {
   # Make directory if it doesn't exist
   if (!dir.exists(dir_path)) {
     dir.create(dir_path, recursive = TRUE)
   }
-  
-  # Generate mock data
+
+  # Generate mock data (taxonomic abundance needed for the wide output)
   valencia_data <- generate_mock_valencia(...)
-  
-  # Write CST assignments
-  cst_path <- file.path(dir_path, paste0(base_name, "_cst.csv"))
+
+  # REAL VALENCIA shape: a single wide CSV (input + appended CST columns),
+  # keyed by sampleID -- not three separate files.
+  out <- valencia_wide_output(valencia_data)
   write.csv(
-    valencia_data$cst,
-    file = cst_path,
-    quote = FALSE,
-    row.names = FALSE
+    out,
+    file = file.path(dir_path, paste0(base_name, "_output.csv")),
+    quote = FALSE, row.names = FALSE
   )
-  
-  # Write scores if included
-  if (!is.null(valencia_data$scores)) {
-    scores_path <- file.path(dir_path, paste0(base_name, "_scores.csv"))
-    write.csv(
-      valencia_data$scores,
-      file = scores_path,
-      quote = FALSE
-    )
-  }
-  
-  # Write taxonomic data if included
-  if (!is.null(valencia_data$abundance)) {
-    abundance_path <- file.path(dir_path, paste0(base_name, "_abundance.csv"))
-    write.csv(
-      valencia_data$abundance,
-      file = abundance_path,
-      quote = FALSE,
-      row.names = FALSE
-    )
-  }
-  
+
   return(invisible(dir_path))
 }
 
@@ -1460,52 +1454,65 @@ generate_mock_fgt_dataset <- function(
     
     message("Writing output files to: ", output_dir)
     
-    # SpeciateIT files
+    # --- SpeciateIT: REAL shape = ASV-keyed results + separate ASV count table.
+    # speciateIT classifies ASVs (not samples); sample identity comes from the
+    # ASV count table, so we emit both and let the importer join them.
     speciateit_dir <- file.path(output_dir, "speciateit")
-    if (!dir.exists(speciateit_dir)) {
-      dir.create(speciateit_dir)
-    }
-    
-    speciateit_out <- file.path(speciateit_dir, "MC_order7_results.txt")
-    write.table(
-      combined_speciateit,
-      file = speciateit_out,
-      sep = "\t",
-      quote = FALSE,
-      row.names = FALSE
+    if (!dir.exists(speciateit_dir)) dir.create(speciateit_dir)
+
+    species_pool <- c(
+      "Lactobacillus crispatus", "Lactobacillus iners", "Lactobacillus gasseri",
+      "Lactobacillus jensenii", "Gardnerella vaginalis", "Gardnerella leopoldii",
+      "Gardnerella swidsinskii", "Gardnerella piotii", "Prevotella bivia",
+      "Atopobium vaginae", "Sneathia amnii", "Megasphaera genomosp type 1",
+      "Mobiluncus curtisii"
     )
-    
-    # VIRGO files
+    n_asv     <- min(120L, max(40L, n_sequences %/% 5L))
+    asv_ids   <- paste0("ASV", seq_len(n_asv))
+    asv_taxon <- sample(species_pool, n_asv, replace = TRUE)
+
+    mc_results <- data.frame(
+      "Sequence ID"           = asv_ids,
+      "Classification"        = asv_taxon,
+      "posterior probability" = runif(n_asv, 0.7, 1.0),
+      "number of Decisions"   = sample(5:20, n_asv, replace = TRUE),
+      check.names = FALSE, stringsAsFactors = FALSE
+    )
+    write.table(mc_results,
+                file = file.path(speciateit_dir, "MC_order7_results.txt"),
+                sep = "\t", quote = FALSE, row.names = FALSE)
+
+    # ASV count table (sampleID x ASV); each sample's counts follow its CST.
+    asv_counts <- matrix(0L, nrow = n_samples, ncol = n_asv,
+                         dimnames = list(sample_ids, asv_ids))
+    for (i in seq_len(n_samples)) {
+      sp <- create_species_dist(sample_csts[i])
+      p  <- sp[asv_taxon]; p[is.na(p)] <- 1e-4; p <- p / sum(p)
+      asv_counts[i, ] <- as.integer(stats::rmultinom(1, sequences_per_sample, p))
+    }
+    write.csv(data.frame(sampleID = rownames(asv_counts), asv_counts,
+                         check.names = FALSE),
+              file = file.path(speciateit_dir, "ASV_count_table.csv"),
+              quote = FALSE, row.names = FALSE)
+
+    # --- VIRGO: REAL shape = one <sample>.out per sample (handled by writer).
     virgo_dir <- file.path(output_dir, "virgo")
-    write_mock_virgo(virgo_dir, "mock_virgo", 
-                    n_genes = n_genes, 
+    write_mock_virgo(virgo_dir, "mock_virgo",
+                    n_genes = n_genes,
                     n_samples = n_samples,
                     sample_id_prefix = sample_id_prefix,
                     simulation_type = "realistic",
                     cst_distribution = virgo_cst_dist,
                     seed = if (is.null(seed)) NULL else seed + 2)
-    
-    # VALENCIA files
+
+    # --- VALENCIA: REAL shape = one wide CSV from the COORDINATED valencia_data
+    # (carries the forced, CST-consistent assignments).
     valencia_dir <- file.path(output_dir, "valencia")
-    write_mock_valencia(valencia_dir, "mock_valencia",
-                        n_samples = n_samples,
-                        sample_id_prefix = sample_id_prefix,
-                        include_scores = TRUE,
-                        add_taxonomic_data = TRUE,
-                        seed = if (is.null(seed)) NULL else seed + 1)
-    
-    # Override with our forced CST assignments
-    cst_path <- file.path(valencia_dir, "mock_valencia_cst.csv")
-    write.csv(
-      data.frame(
-        Sample = sample_ids,
-        CST = sample_csts
-      ),
-      file = cst_path,
-      quote = FALSE,
-      row.names = FALSE
-    )
-    
+    if (!dir.exists(valencia_dir)) dir.create(valencia_dir)
+    write.csv(valencia_wide_output(valencia_data),
+              file = file.path(valencia_dir, "mock_valencia_output.csv"),
+              quote = FALSE, row.names = FALSE)
+
     message("Files written successfully.")
   }
   
