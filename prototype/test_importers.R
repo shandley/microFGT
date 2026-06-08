@@ -39,23 +39,13 @@ t_real <- import_speciateit(res_path, ct_path)
 check("speciateIT real: taxa x 169 samples (ASV->taxon join)",
       ncol(t_real) == 169 && nrow(t_real) <= length(pool) + 1)
 
-# VALENCIA: real-SHAPED output fixture (no genuine VALENCIA run is committed).
-subs <- c("I-A", "III-A", "IV-A")
-sim <- matrix(0.0125, 3, 13, dimnames = list(NULL,
-        paste0(c("I-A","I-B","II","III-A","III-B","IV-A","IV-B",
-                 "IV-C0","IV-C1","IV-C2","IV-C3","IV-C4","V"), "_sim")))
-for (i in 1:3) sim[i, paste0(subs[i], "_sim")] <- 0.85
-val_real <- tempfile("valencia_", fileext = ".csv")
-write.csv(data.frame(
-  sampleID = c("s1","s2","s3"), read_count = c(10000,10000,10000),
-  Lactobacillus_crispatus = c(0.9,0.1,0.0), Gardnerella_vaginalis = c(0.0,0.1,0.6),
-  as.data.frame(sim, check.names = FALSE),
-  subCST = subs, score = apply(sim,1,max), CST = c("I","III","IV-A"),
-  check.names = FALSE, row.names = NULL), val_real, quote = FALSE, row.names = FALSE)
-c_real <- import_valencia(val_real)
-check("VALENCIA real: 3 samples, CST/subCST/score pulled from trailing cols",
-      nrow(c_real) == 3 && all(c("CST","subCST","score") %in% names(c_real)) &&
-      identical(as.character(c_real$CST), c("I","III","IV-A")))
+# VALENCIA: GENUINE output produced by running Valencia.py on real published
+# composition data (13,231 samples; 99.9% CST concordance with the paper's own
+# Val_CST labels). Fixture is the head of that genuine run.
+c_real <- import_valencia(file.path(FX, "valencia_genuine_output_head.csv"))
+check("VALENCIA real (GENUINE tool output): CST/subCST/score from trailing cols",
+      nrow(c_real) == 6 && all(c("CST","subCST","score") %in% names(c_real)) &&
+      !anyNA(c_real$CST))
 
 cat("== MOCK via fixed writers ==\n")
 source("R/mock_data.R")

@@ -35,6 +35,11 @@ Large catalog/study files were trimmed to format samples (provenance below);
 | `_counts.tsv` wide matrix as a deliverable | wide matrix is something *you* build by stacking per-sample `.out` files |
 
 ## VALENCIA — github.com/ravel-lab/VALENCIA  (authoritative: `Valencia.py`)
+> **Validated against GENUINE tool output.** Ran `Valencia.py` on the repo's real
+> published composition data (13,231 samples × 212 taxa); resulting `CST` matches
+> the paper's own `Val_CST` for **99.9%** of samples. `import_valencia()` parses
+> that genuine output. Fixture: `valencia_genuine_output_head.csv` (head of the run).
+
 - Input CSV: col1 `sampleID`, col2 `read_count`, then **one column per taxon**
   (taxon name = header, cells = counts).
 - Output CSV = **the input, plus appended columns** (one wide file):
