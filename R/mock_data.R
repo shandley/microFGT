@@ -394,7 +394,10 @@ generate_mock_virgo <- function(
     # Generate counts for each sample based on its CST
     for (i in 1:n_samples) {
       cst <- sample_csts[i]
-      
+      # Normalize bare CST labels ("I", "IV-A") to the "CST X" form the
+      # branches below test against, so both naming conventions work.
+      if (!grepl("^CST", cst)) cst <- paste("CST", cst)
+
       # Set abundance based on CST
       if (cst == "CST I") {
         # L. crispatus dominated
