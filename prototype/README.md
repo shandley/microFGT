@@ -1,4 +1,4 @@
-# microFGT prototype — a thin MAE-based core (exploratory spike)
+# microFGT prototype — a thin MAE-based spine (exploratory spike)
 
 This directory is a throwaway spike (branch `importers`), built to answer one
 question: **if microFGT is built on Bioconductor's `MultiAssayExperiment` (MAE)
@@ -41,18 +41,22 @@ diversity, `agglomerateByRank`) on top of the container, but is not needed here.
 
 ## What's validated, and how genuinely
 
-| Importer | Validation | Status |
+These checks confirm only that each **importer correctly parses the tool's
+output format** — *not* that the integrated pipeline has run on real co-assayed
+data. It has not (see *Open / not done* below).
+
+| Importer | Validation | Importer vs real output |
 |---|---|---|
-| **VIRGO** | genuine per-sample `sub*.out` from `ravel-lab/VIRGO/_test_run` | ✅ real |
-| **VALENCIA** | ran the actual `Valencia.py` on 13,231 real samples; resulting `CST` matches the paper's own `Val_CST` for **99.9%** | ✅ real |
-| **speciateIT** | columns confirmed vs the documented spec; ASV→sample join modeled correctly — but **no genuine run** (compiled C++ + trained model DB) | ⚠️ shape-real |
+| **VIRGO** | genuine per-sample `sub*.out` from `ravel-lab/VIRGO/_test_run` | ✅ parsed real output |
+| **VALENCIA** | ran the actual `Valencia.py` on 13,231 real samples; resulting `CST` matches the paper's own `Val_CST` for **99.9%** | ✅ parsed real output |
+| **speciateIT** | columns confirmed vs the documented spec; ASV→sample join modeled correctly — but **no genuine run** (compiled C++ + trained model DB) | ⚠️ shape-real only |
 
 See `real_fixtures/FORMATS.md` for the authoritative format of each tool and
 every way the original mock diverged from reality.
 
 ## Key findings
 
-- **The core is thin.** The three importers are ~40 lines of actual logic; MAE
+- **The spine is thin.** The three importers are ~40 lines of actual logic; MAE
   gives the container, the `sampleMap`, and `intersectColumns()` for free.
 - **The real FGT glue is narrow but real:** recovering speciateIT's sample
   identity from the ASV count table (speciateIT classifies ASVs, *not* samples —
