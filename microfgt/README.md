@@ -53,6 +53,18 @@ pip install -e .
   downgraded but still open** — `import_speciateit`'s handling of the real header is now
   exercised, but a true classifier run on `test.fasta` (needs the ~2.6 GB vSpeciateDB models)
   is the remaining discharge.
+- **P3.5 — Preprocessing front-end + multi-entry workflow** ✅ `microfgt/stages/`: one stage
+  registry (the single source of truth) consumed by two executors — a local resolver (laptop)
+  and a Snakefile generator (HTCF/Slurm) that shells to `microfgt _run-stage`, so the DAG never
+  drifts. The resolver gives a **multi-entry ladder**: FASTQs run the full chain
+  (cutadapt → DADA2 → speciateIT → CST → analysis), an ASV table enters at speciateIT, existing
+  outputs enter at import — the entry point is just which inputs the config provides. DADA2 is
+  orchestrated (`microfgt/scripts/dada2_run.R`) with region-aware defaults, truncation/trimming
+  as first-class overridable config, and an emitted quality profile. **`microfgt check`** is a
+  preflight doctor over the resolved entry point (binaries, R packages, DB paths, region↔DB
+  match — fail early, helpfully). Wiring validated end-to-end with stub tools; real
+  cutadapt/DADA2/speciateIT validation is folded into one **HTCF ladder-run IOU** (16S front-end;
+  metagenomic QC/host-removal → VIRGO front-end is the next pass).
 - **P4 — Analysis + viz + turnkey CLI** ✅ Analysis framework chosen deliberately:
   **scikit-bio for the commodity stats on a mudata-native container** (no framework lock-in).
   `microfgt/analysis/` buys compositional transforms (relabund, CLR), α/β diversity, PCoA

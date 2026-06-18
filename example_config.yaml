@@ -6,6 +6,19 @@
 # synthetic test fixture, since no genuine MC_order7_results.txt ships — see the
 # README's P3 IOU note; swap in real paths for real data.)
 
+# Entry point = whichever inputs you provide. This example enters at existing speciateIT
+# outputs. To run the full ladder from raw reads instead (needs cutadapt + R/dada2 +
+# speciateIT installed — run `microfgt check -c <cfg>` first), use:
+#
+#   composition:
+#     reads:
+#       fastq_dir: raw/                 # paired *_R1*/*_R2* FASTQs
+#       region: V3V4                    # sets DADA2 + speciateIT model defaults
+#       primers: { fwd: <FWD>, rev: <REV> }
+#       dada2: { trunc_len: [280, 230], trim_left: [17, 21] }   # overridable
+#     speciateit:
+#       db: /path/to/vSpeciateIT_V3V4
+
 composition:
   speciateit:
     results: tests/python/data/speciateit_MC_order7_results.synthetic.txt

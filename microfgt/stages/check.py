@@ -1,0 +1,86 @@
+"""`microfgt check` — preflight dependency doctor driven by the resolved entry point.
+
+Because the resolver already knows which stages will run for the given inputs, check verifies
+exactly those stages' requirements (binaries, R packages, DB paths) plus region<->speciateIT
+DB consistency — and fails early, helpfully, instead of three stages deep. Turns the
+"server-side tools" caveat into a constraint-A feature.
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
+from microfgt.stages.registry import provided_artifacts
+from microfgt.stages.resolve import resolve
+
+
+@dataclass
+class CheckResult:
+    ok: bool
+    message: str
+
+
+def _r_has_package(pkg: str, rscript: str = "Rscript") -> bool:
+    if shutil.which(rscript) is None:
+        return False
+    try:
+        proc = subprocess.run(
+            [rscript, "-e", f"quit(status = !requireNamespace('{pkg}', quietly = TRUE))"],
+            capture_output=True, timeout=60,
+        )
+        return proc.returncode == 0
+    except Exception:
+        return False
+
+
+def _verify(req) -> CheckResult:
+    if req.kind == "binary":
+        ok = shutil.which(req.name) is not None
+    elif req.kind == "path":
+        ok = Path(req.name).exists()
+    elif req.kind == "rpackage":
+        ok = _r_has_package(req.name)
+    else:  # pragma: no cover
+        ok = False
+    label = f"{req.kind} {req.name!r}"
+    return CheckResult(ok, f"OK   {label}" if ok else f"MISS {label} — {req.hint}")
+
+
+def _region_db_consistency(config, stage_ids) -> list[CheckResult]:
+    if "assign" not in stage_ids:
+        return []
+    reads = config.get("composition", {}).get("reads", {})
+    sit = config.get("composition", {}).get("speciateit", {})
+    region, db = reads.get("region"), sit.get("db")
+    if not region or not db:
+        return []
+    token = region.replace("-", "").upper()
+    ok = token in Path(db).name.replace("-", "").upper()
+    msg = (
+        f"OK   region {region!r} matches speciateIT db {Path(db).name!r}" if ok
+        else f"MISS region {region!r} does not match speciateIT db {Path(db).name!r} "
+             f"(check you pointed at the right model)"
+    )
+    return [CheckResult(ok, msg)]
+
+
+def check(config: dict, target: str = "mudata") -> list[CheckResult]:
+    """Verify the tools/paths needed for the stages that WILL run for these inputs."""
+    provided = set(provided_artifacts(config))
+    stages = resolve(target, provided)
+    stage_ids = {s.id for s in stages}
+
+    results: list[CheckResult] = []
+    seen = set()
+    for stage in stages:
+        for req in stage.requirements(config):
+            key = (req.kind, req.name)
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append(_verify(req))
+    results += _region_db_consistency(config, stage_ids)
+    return results

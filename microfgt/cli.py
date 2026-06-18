@@ -1,13 +1,16 @@
 """Turnkey CLI — runs the whole workflow, with the Python API underneath for power users.
 
-Config-first (constraint A): ``microfgt run -c config.yaml`` drives the end-to-end workflow;
-``classify`` and ``analyze`` operate on an existing ``.h5mu``. microFGT owns the glue.
+Config-first (constraint A). The entry point is just which inputs the config provides:
+FASTQs run the full ladder (primer-trim -> DADA2 -> speciateIT -> CST -> analysis); an ASV
+table enters at speciateIT; existing outputs enter at import. ``microfgt check`` verifies the
+tools/paths the resolved entry point needs, up front.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+import tempfile
 
 from microfgt import __version__
 
@@ -20,10 +23,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.set_defaults(_run=lambda _a: parser.print_help())
     sub = parser.add_subparsers(title="commands")
 
-    run = sub.add_parser("run", help="Run the whole workflow from a config file.")
+    run = sub.add_parser("run", help="Run the workflow from a config file (any entry point).")
     run.add_argument("-c", "--config", required=True, help="YAML workflow config.")
     run.add_argument("-o", "--output", help="Output .h5mu (overrides config 'output').")
+    run.add_argument("--workdir", help="Directory for intermediate artifacts.")
+    run.add_argument("--executor", choices=["local", "snakemake"], default="local")
     run.set_defaults(_run=_cmd_run)
+
+    chk = sub.add_parser("check", help="Preflight: verify tools/paths for the resolved entry point.")
+    chk.add_argument("-c", "--config", required=True)
+    chk.set_defaults(_run=_cmd_check)
 
     clf = sub.add_parser("classify", help="Classify CST on a .h5mu's composition modality.")
     clf.add_argument("-i", "--input", required=True)
@@ -40,6 +49,13 @@ def build_parser() -> argparse.ArgumentParser:
     ana.add_argument("--ordinate", action="store_true")
     ana.add_argument("--diffabund-group", default=None, metavar="OBS_COL")
     ana.set_defaults(_run=_cmd_analyze)
+
+    rs = sub.add_parser("_run-stage", help=argparse.SUPPRESS)  # internal (Snakemake calls it)
+    rs.add_argument("stage")
+    rs.add_argument("--workdir", required=True)
+    rs.add_argument("--config", required=True)
+    rs.add_argument("--output")
+    rs.set_defaults(_run=_cmd_run_stage)
     return parser
 
 
@@ -57,16 +73,43 @@ def _attach_cst(mdata, cst_df) -> None:
 
 
 def _cmd_run(args: argparse.Namespace) -> None:
-    from microfgt.workflow import run_workflow
+    from microfgt.stages import LocalExecutor, SnakemakeExecutor, provided_artifacts, resolve
 
     config = _load_config(args.config)
     out = args.output or config.get("output")
     if not out:
         raise SystemExit("No output path: pass -o/--output or set 'output:' in the config.")
-    mdata = run_workflow(config)
-    mdata.write(out)
-    print(f"wrote {out}: {mdata.shape[0]} samples, modalities {list(mdata.mod)}")
-    print(mdata.uns.get("reconciliation_summary", ""))
+    workdir = args.workdir or tempfile.mkdtemp(prefix="microfgt_")
+    stages = resolve("mudata", provided_artifacts(config))
+    plan = " -> ".join(s.id for s in stages) or "(nothing to do)"
+
+    if args.executor == "snakemake":
+        path = SnakemakeExecutor().run(stages, args.config, workdir, out)
+        print(f"entry-point plan: {plan}")
+        print(f"wrote Snakefile: {path}\nsubmit on the cluster with snakemake + a Slurm profile.")
+        return
+
+    print(f"entry-point plan: {plan}")
+    written = LocalExecutor().run(stages, workdir, config, out)
+    print(f"wrote {written}")
+
+
+def _cmd_check(args: argparse.Namespace) -> None:
+    from microfgt.stages import check
+
+    results = check(_load_config(args.config))
+    for r in results:
+        print(r.message)
+    missing = [r for r in results if not r.ok]
+    if missing:
+        raise SystemExit(f"{len(missing)} prerequisite(s) missing — see above.")
+    print("all prerequisites satisfied.")
+
+
+def _cmd_run_stage(args: argparse.Namespace) -> None:
+    from microfgt.stages import execute_stage
+
+    execute_stage(args.stage, args.workdir, _load_config(args.config), args.output)
 
 
 def _cmd_classify(args: argparse.Namespace) -> None:
