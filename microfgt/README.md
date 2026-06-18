@@ -44,7 +44,15 @@ pip install -e .
   exact reproduction of genuine `Valencia.py` output on the head fixture. The full gate
   (`tests/python/test_cst_validation_gate.py`) needs VALENCIA's ~8 MB published dataset —
   stage it with `python validation/fetch_valencia_published_data.py` (skips in CI otherwise).
-- **P3** — Orchestration wrappers (actually run the tools).
+- **P3 — Orchestration wrappers** ✅ `microfgt/orchestrate/`: `run_speciateit` (grounded in
+  speciateIT's `classify -d/-i/-o` command) and `run_virgo`/`run_virgo_samples` (grounded in
+  VIRGO's `runMapping.step1.sh`), each locating an installed tool (configurable path / PATH —
+  microFGT ships no installers; the tools' reference data is too large to bundle), recording
+  provenance (constraint B), and handing output to the matching importer. Validated end-to-end
+  via stub executables that emit the documented genuine formats. **speciateIT real-output IOU:
+  downgraded but still open** — `import_speciateit`'s handling of the real header is now
+  exercised, but a true classifier run on `test.fasta` (needs the ~2.6 GB vSpeciateDB models)
+  is the remaining discharge.
 - **P4** — Analysis + viz + turnkey CLI; pick the analysis framework here.
 - **P5** — Alternative CST methods, diffed against the centroid baseline.
 
