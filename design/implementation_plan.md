@@ -106,6 +106,11 @@ Scott, 2026-06-16: "be open to other methods" at every decision point, not just 
   ≥99.9% match vs VALENCIA on the published data. *Milestone: validated baseline + the
   swappable seam exist.*
 - **P3 — Orchestration wrappers.** Actually run speciateIT/VIRGO; the "run the tools" half.
+  - *Fast-follow (logged 2026-06-18):* a **Snakemake/Slurm cluster-execution layer** so the
+    wrappers run as batch jobs on HTCF (WashU's cluster), not just local subprocesses —
+    finishes the real batch story. (Per-sample VIRGO/speciateIT runs are embarrassingly
+    parallel.) The first real HTCF run is also the trigger to discharge the speciateIT
+    real-output validation IOU.
 - **P4 — Analysis + viz + turnkey CLI.** Diversity, transforms, diff. abundance (bought,
   not built); the end-to-end CLI.
 - **P5 — Alternative CST methods.** Compared against the centroid baseline on the same
