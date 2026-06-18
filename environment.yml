@@ -1,0 +1,13 @@
+name: microfgt
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python>=3.10
+  - pandas>=1.5
+  - numpy>=1.23
+  - pip
+  - pip:
+      - mudata>=0.2.3
+      - anndata>=0.9
+      # then: pip install -e ".[dev]" to add the package + test deps

@@ -114,3 +114,12 @@ planning/rebuild_summary.md
 R/core/backup/
 **/legacy_code/
 *.bak
+
+# Python (microfgt rebuild)
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/

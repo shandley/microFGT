@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "microfgt"
+version = "0.0.1"
+description = "A flexible, one-stop tool for female genital tract (FGT) microbiome analysis"
+readme = "microfgt/README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "microFGT contributors" }]
+keywords = ["microbiome", "FGT", "vaginal", "VALENCIA", "VIRGO", "speciateIT", "CST"]
+
+# Core dependencies are deliberately minimal — the integrated object is just the
+# container (mudata, layer 1). The multi-omics analysis FRAMEWORK (muon vs.
+# scikit-bio-style tooling) is an OPEN pick deferred to the analysis layer (P4);
+# bare-mudata objects are read natively by either, so there is no lock-in.
+dependencies = [
+    "mudata>=0.2.3",
+    "anndata>=0.9",
+    "pandas>=1.5",
+    "numpy>=1.23",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+microfgt = "microfgt.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["microfgt"]
+
+[tool.pytest.ini_options]
+# Python tests live under tests/python so they never collide with the R
+# package's tests/testthat tree (this repo is mid-refactor R -> Python).
+testpaths = ["tests/python"]
