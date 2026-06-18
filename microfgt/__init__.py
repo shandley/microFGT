@@ -6,6 +6,7 @@ module) turns real tool outputs into it. See `microfgt/README.md` for the build 
 
 __version__ = "0.0.1"
 
+from microfgt.cst import classify_cst
 from microfgt.io import (
     build_mudata,
     import_speciateit,
@@ -16,6 +17,7 @@ from microfgt.io import (
 __all__ = [
     "__version__",
     "build_mudata",
+    "classify_cst",
     "import_speciateit",
     "import_valencia",
     "import_virgo",

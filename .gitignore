@@ -123,3 +123,6 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
+
+# Local validation data (large VALENCIA published dataset; not committed)
+.validation_data/

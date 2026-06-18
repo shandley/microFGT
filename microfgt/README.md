@@ -38,7 +38,12 @@ pip install -e .
     the genuine ASV assignments in the speciateIT README. **Real-output validation is an
     IOU for P3** (the orchestration wrapper runs speciateIT on `test.fasta`, then this
     importer is re-validated against the genuine output).
-- **P2** — Centroid CST behind a `classify_cst` interface (validate 99.9% vs VALENCIA).
+- **P2 — Centroid CST behind a `classify_cst` interface** ✅ Faithful VALENCIA port behind
+  a swappable `classify_cst(composition, method=...)` seam. **Validated: 99.94% subCST
+  agreement vs the paper's labels on all 13,231 published samples** (≥99.9% target), and
+  exact reproduction of genuine `Valencia.py` output on the head fixture. The full gate
+  (`tests/python/test_cst_validation_gate.py`) needs VALENCIA's ~8 MB published dataset —
+  stage it with `python validation/fetch_valencia_published_data.py` (skips in CI otherwise).
 - **P3** — Orchestration wrappers (actually run the tools).
 - **P4** — Analysis + viz + turnkey CLI; pick the analysis framework here.
 - **P5** — Alternative CST methods, diffed against the centroid baseline.
