@@ -53,7 +53,15 @@ pip install -e .
   downgraded but still open** — `import_speciateit`'s handling of the real header is now
   exercised, but a true classifier run on `test.fasta` (needs the ~2.6 GB vSpeciateDB models)
   is the remaining discharge.
-- **P4** — Analysis + viz + turnkey CLI; pick the analysis framework here.
+- **P4 — Analysis + viz + turnkey CLI** ✅ Analysis framework chosen deliberately:
+  **scikit-bio for the commodity stats on a mudata-native container** (no framework lock-in).
+  `microfgt/analysis/` buys compositional transforms (relabund, CLR), α/β diversity, PCoA
+  ordination, and differential abundance (ANCOM) from scikit-bio — none reimplemented.
+  Minimal matplotlib viz behind the `viz` extra. Config-first turnkey CLI:
+  `microfgt run -c config.yaml` runs import → CST → analysis → one `.h5mu`; plus
+  `microfgt classify` / `microfgt analyze` on an existing object. See `example_config.yaml`.
+  Zero-count samples are handled honestly (excluded from compositional steps, recorded in
+  `uns`, never silently dropped).
 - **P5** — Alternative CST methods, diffed against the centroid baseline.
 
 ## Quickstart (Python API)

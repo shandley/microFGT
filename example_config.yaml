@@ -1,0 +1,23 @@
+# Example microFGT workflow config (runnable against the repo fixtures).
+#   microfgt run -c example_config.yaml -o /tmp/microfgt_demo.h5mu
+#
+# Demonstrates the turnkey path: import composition -> classify CST (centroid) ->
+# run the bought analysis -> one MuData out. (speciateIT results here are the
+# synthetic test fixture, since no genuine MC_order7_results.txt ships — see the
+# README's P3 IOU note; swap in real paths for real data.)
+
+composition:
+  speciateit:
+    results: tests/python/data/speciateit_MC_order7_results.synthetic.txt
+    count_table: prototype/real_fixtures/speciateit_test_count_table.csv
+
+cst:
+  method: centroid          # classify from composition with the validated baseline
+
+analysis:
+  transforms: [relabund, clr]
+  alpha: [shannon]
+  beta: braycurtis
+  ordinate: true
+
+output: /tmp/microfgt_demo.h5mu

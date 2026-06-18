@@ -21,10 +21,16 @@ dependencies = [
     "anndata>=0.9",
     "pandas>=1.5",
     "numpy>=1.23",
+    # Analysis framework (P4 decision): commodity stats bought from scikit-bio,
+    # operating on a mudata-native container (no framework lock-in). PyYAML drives the
+    # config-first CLI.
+    "scikit-bio>=0.6",
+    "pyyaml>=6",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0"]
+dev = ["pytest>=7.0", "matplotlib>=3.6"]
+viz = ["matplotlib>=3.6"]
 
 [project.scripts]
 microfgt = "microfgt.cli:main"
