@@ -7,12 +7,13 @@ NOT guessed.
 """
 
 from microfgt.io.integrate import build_mudata
-from microfgt.io.speciateit import import_speciateit
+from microfgt.io.speciateit import collapse_to_taxon, import_speciateit
 from microfgt.io.valencia import import_valencia
 from microfgt.io.virgo import import_virgo
 
 __all__ = [
     "build_mudata",
+    "collapse_to_taxon",
     "import_speciateit",
     "import_valencia",
     "import_virgo",

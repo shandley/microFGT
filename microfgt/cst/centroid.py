@@ -1,10 +1,11 @@
 """Centroid CST classifier — faithful reimplementation of VALENCIA (``Valencia.py``).
 
-This is the validated baseline and yardstick (constraint B): nearest-centroid by
-Yue–Clayton theta to 13 fixed reference subCST centroids, exactly as VALENCIA does it.
-It is the FIRST plugin behind :func:`microfgt.cst.classify_cst`; alternative methods
-(robust name reconciliation, model-based clustering, soft assignment) drop in behind the
-same interface later (P5) and are always diffed against this baseline.
+This is the one blessed CST method (constraint B): nearest-centroid by Yue–Clayton theta
+to 13 fixed reference subCST centroids, exactly as VALENCIA does it. It sits behind
+:func:`microfgt.cst.classify_cst` — the interface exists for genuine variants of this same
+standard (e.g. a custom centroid set), not for rival CST classifiers. What VALENCIA can't
+say about diffuse/continuum communities is surfaced by *augmenting* the CST label with
+interpretable descriptors, not by computing CST a second way.
 
 Fidelity notes vs ``Valencia.py``:
 * Yue–Clayton theta = ``sum(p*q) / (sum((p-q)^2) + sum(p*q))`` over the taxon union.

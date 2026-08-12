@@ -2,12 +2,15 @@ name: microfgt
 channels:
   - conda-forge
   - bioconda
+# conda provides the Python interpreter + the external bioinformatics tools that pip
+# cannot install. microFGT's own Python deps live in pyproject.toml — after creating and
+# activating this env, run `pip install -e ".[dev]"` to install the package + its deps
+# (single source of truth; intentionally not duplicated here).
 dependencies:
   - python>=3.10
-  - pandas>=1.5
-  - numpy>=1.23
   - pip
-  - pip:
-      - mudata>=0.2.3
-      - anndata>=0.9
-      # then: pip install -e ".[dev]" to add the package + test deps
+  # --- 16S front-end tools (Tier 1): the reason to use conda over plain pip ---
+  - cutadapt           # primer trimming
+  - bioconductor-dada2 # denoising -> ASV table + rep-seqs (pulls in r-base)
+  # NOTE: speciateIT (taxonomy) and VIRGO (function) are NOT on bioconda; they and their
+  # reference databases install separately — see the README's "external tools" section.

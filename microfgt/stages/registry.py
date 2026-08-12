@@ -86,7 +86,12 @@ def _run_assign(ctx: StageContext) -> None:
 def _run_import_composition(ctx: StageContext) -> None:
     from microfgt.io import import_speciateit
 
-    adata = import_speciateit(ctx.path("speciateit_results"), ctx.path("asv_table"))
+    # Carry ASV sequences when the FASTA is available (dada2-emitted or user-provided).
+    asv_seqs = ctx.path("asv_seqs")
+    adata = import_speciateit(
+        ctx.path("speciateit_results"), ctx.path("asv_table"),
+        fasta=asv_seqs if asv_seqs.exists() else None,
+    )
     adata.write(ctx.path("composition"))
 
 
@@ -94,10 +99,13 @@ def _run_cst_classify(ctx: StageContext) -> None:
     import anndata as ad
 
     from microfgt.cst import classify_cst
+    from microfgt.io import collapse_to_taxon
 
     adata = ad.read_h5ad(ctx.path("composition"))
+    # CST reads the taxon roll-up; collapse ASV-grain composition first.
+    taxon = collapse_to_taxon(adata) if "classification" in adata.var else adata
     method = ctx.config.get("cst", {}).get("method", "centroid")
-    classify_cst(adata, method=method).to_csv(ctx.path("cst"))
+    classify_cst(taxon, method=method).to_csv(ctx.path("cst"))
 
 
 def _run_cst_valencia(ctx: StageContext) -> None:

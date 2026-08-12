@@ -6,9 +6,11 @@ module) turns real tool outputs into it. See `microfgt/README.md` for the build 
 
 __version__ = "0.0.1"
 
+from microfgt.characterize import describe_composition
 from microfgt.cst import classify_cst
 from microfgt.io import (
     build_mudata,
+    collapse_to_taxon,
     import_speciateit,
     import_valencia,
     import_virgo,
@@ -18,6 +20,8 @@ __all__ = [
     "__version__",
     "build_mudata",
     "classify_cst",
+    "collapse_to_taxon",
+    "describe_composition",
     "import_speciateit",
     "import_valencia",
     "import_virgo",

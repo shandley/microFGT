@@ -4,7 +4,8 @@ Command (grounded in the speciateIT README, not guessed):
     classify -d <vSpeciateDB dir> -i <fasta> -o <outDir>   [--skip-err-thld]
 Output is always ``<outDir>/MC_order7_results.txt``. speciateIT classifies sequences, not
 samples, so we hand the result to :func:`microfgt.io.import_speciateit` together with the
-ASV count table to produce the taxon x sample ``composition`` modality.
+ASV count table (and the input FASTA, so the sequences are retained) to produce the
+ASV x sample ``composition`` modality.
 
 Note: a successful real run here also discharges the P1 real-output validation IOU on
 ``import_speciateit`` — run on ``test.fasta``, then validate the importer against the
@@ -81,6 +82,6 @@ def run_speciateit(
     if count_table is None:
         return results_path, record
 
-    adata = import_speciateit(results_path, count_table, **import_kwargs)
+    adata = import_speciateit(results_path, count_table, fasta=fasta, **import_kwargs)
     adata.uns["speciateit_run"] = record.to_dict()
     return adata

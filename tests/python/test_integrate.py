@@ -1,5 +1,6 @@
 """Integrated object (MuData) assembly + honest sample reconciliation."""
 
+import anndata as ad
 import numpy as np
 import pandas as pd
 import pytest
@@ -8,21 +9,39 @@ from microfgt.io import build_mudata, import_valencia, import_virgo
 from microfgt.io.speciateit import import_speciateit
 
 
-def _aligned_composition(samples, taxa):
-    import anndata as ad
+def _asv_composition(samples, asv_class):
+    """ASV-grain composition (samples x ASVs) with a classification per ASV, as the real
+    importer produces — so build_mudata materialises composition_taxon + descriptors."""
+    asvs = list(asv_class)
+    n = len(samples) * len(asvs)
+    X = (np.arange(n, dtype=np.float32) + 1).reshape(len(samples), len(asvs))
+    var = pd.DataFrame(
+        {
+            "classification": [asv_class[a] for a in asvs],
+            "genus": [asv_class[a].split("_")[0] for a in asvs],
+        },
+        index=pd.Index(asvs, name="asv"),
+    )
+    adata = ad.AnnData(X=X, obs=pd.DataFrame(index=pd.Index(samples, name="sample")), var=var)
+    adata.layers["counts"] = X.astype(np.int64)
+    return adata
 
-    X = np.arange(len(samples) * len(taxa), dtype=np.float32).reshape(len(samples), len(taxa))
+
+def _genes(samples, genes):
+    X = np.arange(len(samples) * len(genes), dtype=np.float32).reshape(len(samples), len(genes))
     return ad.AnnData(
         X=X,
         obs=pd.DataFrame(index=pd.Index(samples, name="sample")),
-        var=pd.DataFrame(index=pd.Index(taxa, name="taxon")),
+        var=pd.DataFrame(index=pd.Index(genes, name="gene")),
     )
 
 
-def test_build_mudata_aligned_samples_attaches_cst():
-    # Synthetic aligned cohort: assays + CST share sample ids -> clean join.
-    comp = _aligned_composition(["s1", "s2", "s3"], ["Lactobacillus_iners", "Gardnerella_vaginalis"])
-    func = _aligned_composition(["s1", "s2", "s3"], ["geneA", "geneB", "geneC"])
+def test_build_mudata_materialises_taxon_assay_and_descriptors():
+    comp = _asv_composition(
+        ["s1", "s2", "s3"],
+        {"ASV1": "Lactobacillus_iners", "ASV2": "Gardnerella_vaginalis"},
+    )
+    func = _genes(["s1", "s2", "s3"], ["geneA", "geneB", "geneC"])
     cst = pd.DataFrame(
         {"CST": ["I", "IV-A", "III"], "subCST": ["I-B", "IV-A", "III-A"], "score": [0.99, 0.7, 0.8]},
         index=pd.Index(["s1", "s2", "s3"], name="sample"),
@@ -30,9 +49,16 @@ def test_build_mudata_aligned_samples_attaches_cst():
 
     mdata = build_mudata(composition=comp, function=func, cst=cst)
 
-    assert set(mdata.mod.keys()) == {"composition", "function"}
-    assert mdata["composition"].n_obs == 3
+    # ASV-grain composition + materialised taxon roll-up + function.
+    assert set(mdata.mod.keys()) == {"composition", "composition_taxon", "function"}
+    assert mdata["composition"].n_vars == 2  # ASV grain preserved
+    assert "Lactobacillus_iners" in list(mdata["composition_taxon"].var_names)
+
+    # CST attached, and the augment descriptors alongside it.
     assert list(mdata.obs["CST"]) == ["I", "IV-A", "III"]
+    for col in ("dominant_taxon", "dominance_pct", "n_taxa_over_10pct"):
+        assert col in mdata.obs
+
     recon = mdata.uns["reconciliation"]
     assert recon["shared_all"] == 3
     assert recon["cst_matched"] == 3
@@ -42,7 +68,7 @@ def test_build_mudata_aligned_samples_attaches_cst():
 def test_reconciliation_reports_mismatch_without_dropping():
     # Honest reconciliation: a CST sample with no assay is reported, not silently dropped;
     # an assay sample with no CST gets NaN, not removed.
-    comp = _aligned_composition(["s1", "s2"], ["Lactobacillus_iners"])
+    comp = _asv_composition(["s1", "s2"], {"ASV1": "Lactobacillus_iners"})
     cst = pd.DataFrame(
         # s2 has an assay (matches); s_ghost has CST but no assay (unmatched).
         {"CST": ["IV-B", "I"], "subCST": ["IV-B", "I-A"], "score": [0.6, 0.9]},
@@ -57,6 +83,29 @@ def test_reconciliation_reports_mismatch_without_dropping():
     recon = mdata.uns["reconciliation"]
     assert recon["cst_matched"] == 1
     assert recon["cst_unmatched"] == ["s_ghost"]     # surfaced, not hidden
+
+
+def test_cst_sim_columns_routed_to_obsm_not_obs():
+    # The 13 <subCST>_sim vectors clutter the sample frame; route them to the taxon assay's
+    # obsm and keep only the labels + descriptors in .obs.
+    comp = _asv_composition(
+        ["s1", "s2"], {"ASV1": "Lactobacillus_iners", "ASV2": "Gardnerella_vaginalis"}
+    )
+    cst = pd.DataFrame(
+        {
+            "I-A_sim": [0.9, 0.1], "V_sim": [0.1, 0.8],
+            "subCST": ["I-A", "V"], "score": [0.9, 0.8], "CST": ["I", "V"],
+        },
+        index=pd.Index(["s1", "s2"], name="sample"),
+    )
+
+    mdata = build_mudata(composition=comp, cst=cst)
+
+    assert "CST" in mdata.obs and "subCST" in mdata.obs
+    assert not any(str(c).endswith("_sim") for c in mdata.obs.columns)
+    taxon = mdata["composition_taxon"]
+    assert taxon.obsm["cst_sim"].shape == (2, 2)
+    assert taxon.uns["cst_sim_columns"] == ["I-A_sim", "V_sim"]
 
 
 def test_build_mudata_requires_a_modality():
@@ -84,4 +133,5 @@ def test_real_fixtures_are_not_a_co_assayed_cohort(real_fixtures, test_data):
     assert comp_ids.isdisjoint(cst_ids)    # sample1.. vs 1,2,..
 
     mdata = build_mudata(composition=comp, function=func, cst=cst)
+    assert "composition_taxon" in mdata.mod          # roll-up materialised
     assert mdata.uns["reconciliation"]["shared_all"] == 0  # reported, honestly

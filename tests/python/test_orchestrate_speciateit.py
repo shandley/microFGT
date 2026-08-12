@@ -11,8 +11,10 @@ P1 IOU, dischargeable by running the real tool on test.fasta).
 import os
 import stat
 
+import pandas as pd
 import pytest
 
+from microfgt.io import collapse_to_taxon
 from microfgt.orchestrate import ToolNotFoundError, run_speciateit
 
 # A stub `classify`: parses speciateIT's flags, emits the documented genuine format.
@@ -49,9 +51,17 @@ def test_run_speciateit_end_to_end(real_fixtures, fake_classify, tmp_path):
         executable=str(fake_classify),
         count_table=real_fixtures / "speciateit_test_count_table.csv",
     )
-    # Classified ASV1-10 (alternating) + ASV11.. bucketed -> Unclassified.
-    assert set(adata.var_names) == {"Lactobacillus_iners", "Gardnerella_vaginalis", "Unclassified"}
+    # ASV grain: one feature per ASV; sequences retained from the FASTA (run_speciateit
+    # hands its input FASTA to the importer). ASV1-10 classified (alternating), ASV11.. not.
+    assert adata.n_vars == 1514        # every ASV column from the count table
     assert adata.n_obs == 169          # samples come from the count table
+    assert adata.var.loc["ASV1", "classification"] in {"Lactobacillus_iners", "Gardnerella_vaginalis"}
+    assert pd.isna(adata.var.loc["ASV11", "classification"])
+    assert adata.var.loc["ASV1", "sequence"].startswith("TAGGGAAT")
+    # The taxon roll-up yields the classified taxa + the Unclassified bucket.
+    assert set(collapse_to_taxon(adata).var_names) == {
+        "Lactobacillus_iners", "Gardnerella_vaginalis", "Unclassified",
+    }
 
     # Provenance recorded (constraint B).
     rec = adata.uns["speciateit_run"]

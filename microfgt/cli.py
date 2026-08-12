@@ -67,9 +67,10 @@ def _load_config(path: str) -> dict:
 
 
 def _attach_cst(mdata, cst_df) -> None:
-    aligned = cst_df.reindex([str(s) for s in mdata.obs_names])
-    for col in aligned.columns:
-        mdata.obs[col] = aligned[col].to_numpy()
+    from microfgt.io.integrate import attach_cst_annotations
+
+    # Labels -> .obs; <subCST>_sim vectors -> composition_taxon.obsm['cst_sim'].
+    attach_cst_annotations(mdata, cst_df)
 
 
 def _cmd_run(args: argparse.Namespace) -> None:
@@ -118,9 +119,11 @@ def _cmd_classify(args: argparse.Namespace) -> None:
     from microfgt.cst import classify_cst
 
     mdata = md.read(args.input)
-    if "composition" not in mdata.mod:
-        raise SystemExit("Input has no 'composition' modality to classify.")
-    cst = classify_cst(mdata["composition"], method=args.method)
+    # CST is computed from the taxon roll-up; fall back to composition for older objects.
+    mod = "composition_taxon" if "composition_taxon" in mdata.mod else "composition"
+    if mod not in mdata.mod:
+        raise SystemExit("Input has no composition modality to classify.")
+    cst = classify_cst(mdata[mod], method=args.method)
     _attach_cst(mdata, cst)
     mdata.write(args.output)
     print(f"wrote {args.output}: classified CST ({args.method}) for {cst.shape[0]} samples")

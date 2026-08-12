@@ -1,8 +1,10 @@
 """Assemble per-modality assays into one sample-keyed MuData (layer 1, the core object).
 
-A MuData holds sample-keyed assays in one object: ``composition`` (taxon x sample, from
-speciateIT) and ``function`` (gene x sample, from VIRGO), with CST and clinical/sample
-variables as sample-level annotations. This is the currency every later layer reads/writes.
+A MuData holds sample-keyed assays in one object: ``composition`` (**ASV x sample**, from
+speciateIT — the source of truth, carrying sequences), its materialised taxon roll-up
+``composition_taxon`` (taxon x sample, what CST and the descriptors read), and ``function``
+(gene x sample, from VIRGO), with CST + augment descriptors + clinical variables as
+sample-level annotations. This is the currency every later layer reads/writes.
 
 **Honest sample reconciliation** (constraint B): we never silently drop or double-count
 samples across assays. MuData keeps the *union* of sample ids; ``build_mudata`` reports
@@ -22,6 +24,9 @@ from dataclasses import dataclass
 import anndata as ad
 import mudata as md
 import pandas as pd
+
+from microfgt.characterize import describe_composition
+from microfgt.io.speciateit import collapse_to_taxon
 
 
 @dataclass
@@ -45,36 +50,82 @@ class Reconciliation:
         return s
 
 
+def attach_cst_annotations(mdata: md.MuData, cst: pd.DataFrame) -> None:
+    """Attach CST results to ``mdata``, keeping the sample annotation frame clean.
+
+    The CST *label* columns (``CST`` / ``subCST`` / ``score`` and any user columns) go onto
+    the global ``.obs`` by sample id. The 13 ``<subCST>_sim`` per-centroid similarity vectors
+    are routed to ``composition_taxon.obsm['cst_sim']`` (with the column names in
+    ``.uns['cst_sim_columns']``) — retrievable on the object, but not cluttering ``.obs``.
+    If there is no ``composition_taxon`` modality, the sims are dropped (they are recomputable
+    from :func:`microfgt.cst.classify_cst`).
+    """
+    cst = cst.copy()
+    cst.index = cst.index.astype(str)
+    union = list(mdata.obs_names)
+
+    sim_cols = [c for c in cst.columns if str(c).endswith("_sim")]
+    label_cols = [c for c in cst.columns if c not in sim_cols]
+
+    aligned = cst.reindex(union)
+    for col in label_cols:
+        mdata.obs[col] = aligned[col].to_numpy()
+
+    if sim_cols and "composition_taxon" in mdata.mod:
+        taxon = mdata.mod["composition_taxon"]
+        sims = cst.reindex(taxon.obs_names.astype(str))[sim_cols]
+        taxon.obsm["cst_sim"] = sims.to_numpy(dtype=float)
+        taxon.uns["cst_sim_columns"] = [str(c) for c in sim_cols]
+
+
 def build_mudata(
     composition: ad.AnnData | None = None,
     function: ad.AnnData | None = None,
     cst: pd.DataFrame | None = None,
     obs: pd.DataFrame | None = None,
+    *,
+    composition_taxon: ad.AnnData | None = None,
+    descriptors: bool = True,
 ) -> md.MuData:
     """Build a MuData from the available modalities and attach sample-level annotations.
 
     Parameters
     ----------
     composition:
-        taxon x sample AnnData from :func:`microfgt.io.import_speciateit`.
+        **ASV x sample** AnnData from :func:`microfgt.io.import_speciateit` (source of
+        truth, carrying sequences).
     function:
         gene x sample AnnData from :func:`microfgt.io.import_virgo`.
     cst:
-        Sample-keyed CST/subCST/score from :func:`microfgt.io.import_valencia`.
+        Sample-keyed CST/subCST/score from :func:`microfgt.io.import_valencia` or
+        :func:`microfgt.cst.classify_cst`. Label columns go to ``.obs``; any
+        ``<subCST>_sim`` similarity vectors are routed to
+        ``composition_taxon.obsm['cst_sim']`` (see :func:`attach_cst_annotations`).
     obs:
         Optional extra sample-level (clinical) annotations, indexed by sample id.
+    composition_taxon:
+        Taxon x sample roll-up of ``composition``. If omitted and ``composition`` is
+        ASV-grain, it is materialised automatically via :func:`microfgt.io.collapse_to_taxon`
+        (the taxon view is always present).
+    descriptors:
+        If True (default), compute the augment descriptors (dominant taxon, % dominant,
+        # taxa >10%) from the taxon roll-up and attach them to ``.obs``.
 
     Returns
     -------
     mudata.MuData
-        Modalities under ``composition`` / ``function`` keys; CST and clinical variables
-        joined onto the global ``.obs`` by sample id. A :class:`Reconciliation` is stored
-        in ``mdata.uns["reconciliation"]`` (and its one-line summary in
-        ``...["reconciliation_summary"]``).
+        Modalities under ``composition`` / ``composition_taxon`` / ``function`` keys; CST,
+        descriptors, and clinical variables joined onto the global ``.obs`` by sample id. A
+        :class:`Reconciliation` is stored in ``mdata.uns["reconciliation"]`` (and its
+        one-line summary in ``...["reconciliation_summary"]``).
     """
     mods: dict[str, ad.AnnData] = {}
     if composition is not None:
         mods["composition"] = composition
+        if composition_taxon is None and "classification" in composition.var:
+            composition_taxon = collapse_to_taxon(composition)
+    if composition_taxon is not None:
+        mods["composition_taxon"] = composition_taxon
     if function is not None:
         mods["function"] = function
     if not mods:
@@ -93,15 +144,11 @@ def build_mudata(
 
     cst_matched, cst_unmatched = 0, []
     if cst is not None:
-        cst = cst.copy()
-        cst.index = cst.index.astype(str)
-        matched_idx = [s for s in cst.index if s in union_set]
-        cst_matched = len(matched_idx)
-        cst_unmatched = [s for s in cst.index if s not in union_set]
-        # Align to the union without dropping assay samples (unmatched -> NaN).
-        aligned = cst.reindex(union)
-        for col in aligned.columns:
-            mdata.obs[col] = aligned[col].to_numpy()
+        cst_idx = cst.index.astype(str)
+        cst_matched = len([s for s in cst_idx if s in union_set])
+        cst_unmatched = [s for s in cst_idx if s not in union_set]
+        # Labels -> global .obs; <subCST>_sim vectors -> composition_taxon.obsm['cst_sim'].
+        attach_cst_annotations(mdata, cst)
 
     if obs is not None:
         obs = obs.copy()
@@ -109,6 +156,13 @@ def build_mudata(
         aligned = obs.reindex(union)
         for col in aligned.columns:
             mdata.obs[col] = aligned[col].to_numpy()
+
+    # Augment descriptors: deterministic, always-wanted summaries of the taxon roll-up,
+    # attached as plain .obs columns beside CST (they augment it, never replace it).
+    if descriptors and composition_taxon is not None:
+        desc = describe_composition(composition_taxon).reindex(union)
+        for col in desc.columns:
+            mdata.obs[col] = desc[col].to_numpy()
 
     recon = Reconciliation(
         n_samples=len(union),

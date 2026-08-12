@@ -1,8 +1,15 @@
-"""CST method layer — a swappable ``classify_cst(composition, method=...)`` interface.
+"""CST layer — the ``classify_cst(composition, ...)`` interface, one blessed method.
 
-The seam exists from day one because we know >=2 implementations are coming. ``centroid``
-(faithful VALENCIA) is the first plugin and the validated baseline; alternatives register
-behind the same interface (P5) and are always diffed against the centroid baseline.
+CST is a single field standard: **VALENCIA**, ported as ``centroid`` and validated to
+99.94% subCST agreement. It is not computed multiple ways and it is not competed against
+rival classifiers — the community structure VALENCIA flattens is surfaced by *augmenting*
+CST with interpretable descriptors (dominant taxon, % dominant, # taxa >10%), not by
+swapping in alternative CST methods.
+
+``register_method`` remains as a genuine extension point (e.g. a user's own centroid set or
+a re-derivation), but ``centroid`` is the one method microFGT ships and blesses. There is no
+namespacing and no per-method provenance stamp: with a single standard method there is
+nothing to disambiguate.
 """
 
 from __future__ import annotations
@@ -15,7 +22,12 @@ _METHODS: dict[str, Callable] = {}
 
 
 def register_method(name: str, fn: Callable) -> None:
-    """Register a CST method behind the ``classify_cst`` interface."""
+    """Register a CST method behind the ``classify_cst`` interface.
+
+    An extension point, not an invitation to compute CST several ways: microFGT ships and
+    blesses exactly one method (``centroid`` = VALENCIA). Use this to plug in a variant of
+    that same standard (e.g. a custom centroid set), not a rival classifier.
+    """
     _METHODS[name] = fn
 
 
@@ -31,7 +43,7 @@ def classify_cst(composition, method: str = "centroid", **kwargs):
     composition:
         The ``composition`` modality (AnnData) or a samples x taxa DataFrame.
     method:
-        CST method name (default ``"centroid"`` — faithful VALENCIA, the baseline).
+        CST method name (default ``"centroid"`` — faithful VALENCIA, the one blessed method).
     **kwargs:
         Passed through to the method (e.g. ``reference``, ``read_count`` for centroid).
 

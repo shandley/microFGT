@@ -107,8 +107,12 @@ def test_full_fastq_to_h5mu_ladder(tmp_path):
 
     m = md.read(out)
     assert m["composition"].n_obs == 2                       # both samples threaded through
-    assert set(m["composition"].var_names) <= {"Lactobacillus_iners", "Gardnerella_vaginalis"}
+    assert set(m["composition"].var_names) == {"ASV1", "ASV2"}   # ASV grain, not collapsed
+    assert "sequence" in m["composition"].var               # sequences carried through the ladder
+    # Taxon roll-up materialised as its own assay.
+    assert set(m["composition_taxon"].var_names) <= {"Lactobacillus_iners", "Gardnerella_vaginalis"}
     assert "CST" in m.obs.columns                            # CST classified end to end
+    assert "dominant_taxon" in m.obs.columns                 # augment descriptors present
     assert "clr" in m["composition"].layers
     assert "alpha_shannon" in m["composition"].obs
 

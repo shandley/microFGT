@@ -30,7 +30,13 @@ import pandas as pd
 
 from microfgt import analysis
 from microfgt.cst import classify_cst
-from microfgt.io import build_mudata, import_speciateit, import_valencia, import_virgo
+from microfgt.io import (
+    build_mudata,
+    collapse_to_taxon,
+    import_speciateit,
+    import_valencia,
+    import_virgo,
+)
 
 _TRANSFORMS = {"relabund": analysis.relative_abundance, "clr": analysis.clr_transform}
 
@@ -60,26 +66,33 @@ def apply_analysis(adata: ad.AnnData, cfg: dict) -> None:
 
 
 def run_workflow(config: dict) -> md.MuData:
-    """Import -> classify CST -> analyze -> assemble one MuData, per ``config``."""
-    composition = function = cst = None
+    """Import -> characterize (CST + descriptors) -> analyze -> assemble one MuData."""
+    composition = composition_taxon = function = cst = None
 
     comp_cfg = config.get("composition", {})
     if "speciateit" in comp_cfg:
         s = comp_cfg["speciateit"]
-        composition = import_speciateit(s["results"], s["count_table"])
+        composition = import_speciateit(s["results"], s["count_table"], fasta=s.get("fasta"))
+        composition_taxon = collapse_to_taxon(composition)
 
     func_cfg = config.get("function", {})
     if "virgo" in func_cfg:
         function = import_virgo(func_cfg["virgo"]["dir"])
 
+    # CST is computed from the taxon roll-up (VALENCIA operates on taxon abundances).
     cst_cfg = config.get("cst", {})
     if "valencia" in cst_cfg:
         cst = import_valencia(cst_cfg["valencia"])
-    elif cst_cfg.get("method") and composition is not None:
-        cst = classify_cst(composition, method=cst_cfg["method"])
+    elif cst_cfg.get("method") and composition_taxon is not None:
+        cst = classify_cst(composition_taxon, method=cst_cfg["method"])
 
-    # Analysis runs on the composition modality before assembly (results live on it).
+    # Analysis runs on the ASV-grain composition modality before assembly (results live on it).
     if composition is not None and config.get("analysis"):
         apply_analysis(composition, config["analysis"])
 
-    return build_mudata(composition=composition, function=function, cst=cst)
+    return build_mudata(
+        composition=composition,
+        composition_taxon=composition_taxon,
+        function=function,
+        cst=cst,
+    )
