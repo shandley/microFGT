@@ -36,6 +36,26 @@ def test_valencia_labels_select_the_valencia_cst_producer():
     assert "cst_valencia" in plan and "cst_classify" not in plan
 
 
+def test_entry_at_phyloseq_trusts_the_objects_cst():
+    # A phyloseq .rds enters at import_phyloseq and, by default, uses its own CST.
+    cfg = {"composition": {"phyloseq": "ps.rds"}}
+    assert _plan(cfg) == ["import_phyloseq", "cst_phyloseq", "integrate"]
+
+
+def test_phyloseq_entry_reclassifies_when_method_set():
+    # An explicit cst.method overrides the object's CST (classify from the composition).
+    cfg = {"composition": {"phyloseq": "ps.rds"}, "cst": {"method": "centroid"}}
+    plan = _plan(cfg)
+    assert plan == ["import_phyloseq", "cst_classify", "integrate"]
+    assert "cst_phyloseq" not in plan
+
+
+def test_phyloseq_entry_honours_valencia_labels():
+    cfg = {"composition": {"phyloseq": "ps.rds"}, "cst": {"valencia": "v.csv"}}
+    plan = _plan(cfg)
+    assert "cst_valencia" in plan and "cst_phyloseq" not in plan
+
+
 def test_unproducible_target_raises():
     with pytest.raises(StageResolutionError, match="Cannot produce"):
         resolve("mudata", set())            # nothing provided, no way to reach a composition

@@ -18,6 +18,13 @@
 #       dada2: { trunc_len: [280, 230], trim_left: [17, 21] }   # overridable
 #     speciateit:
 #       db: /path/to/vSpeciateIT_V3V4
+#
+# Or enter at a phyloseq .rds — the standard 16S container (needs R + phyloseq). It carries
+# composition, taxonomy, and usually a CST already, so this is the "enter late" path:
+#
+#   composition:
+#     phyloseq: /path/to/ps_with_cst.rds
+#   # cst: omitted -> trust the object's own CST; set cst.method to reclassify instead.
 
 composition:
   speciateit:

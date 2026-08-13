@@ -115,3 +115,57 @@ def test_build_mudata_attaches_existing_cst(composition):
     assert mdata.obs.loc["s2", "CST"] == "III"
     assert "dominant_taxon" in mdata.obs.columns
     assert mdata.uns["reconciliation"]["cst_matched"] == 4
+
+
+# --- wired as a real entry point: in-memory workflow + the file-artifact CLI ladder ---------
+def test_run_workflow_enters_at_phyloseq(test_data):
+    from microfgt.workflow import run_workflow
+
+    mdata = run_workflow({
+        "composition": {"phyloseq": str(test_data / FIXTURE)},
+        "analysis": {"transforms": ["relabund"]},
+    })
+    assert set(mdata.mod) >= {"composition", "composition_taxon"}
+    # The object's own CST is trusted by default (no method/valencia set).
+    assert mdata.obs.loc["s2", "CST"] == "III"
+    assert "dominant_taxon" in mdata.obs.columns
+    assert "relabund" in mdata["composition"].layers
+
+
+def test_cli_run_ladder_from_phyloseq(test_data, tmp_path):
+    import mudata as md
+    import yaml
+
+    from microfgt.cli import main
+
+    out = tmp_path / "out.h5mu"
+    cfg = tmp_path / "cfg.yaml"
+    cfg.write_text(yaml.safe_dump({
+        "composition": {"phyloseq": str(test_data / FIXTURE)},
+        "output": str(out),
+    }))
+
+    assert main(["run", "-c", str(cfg), "--workdir", str(tmp_path / "wd")]) == 0
+    assert out.exists()
+    # The file-artifact backbone ran the resolved entry-point plan.
+    assert (tmp_path / "wd" / "composition.h5ad").exists()
+    assert (tmp_path / "wd" / "cst.csv").exists()
+
+    m = md.read(out)
+    assert m["composition"].n_vars == 3
+    assert "sequence" in m["composition"].var
+    assert m.obs.loc["s4", "CST"] == "IV-B"
+    assert "dominant_taxon" in m.obs.columns
+
+
+def test_cli_check_reports_phyloseq_requirements(test_data, tmp_path):
+    import yaml
+
+    from microfgt.stages import check
+
+    results = check(yaml.safe_load(
+        yaml.safe_dump({"composition": {"phyloseq": str(test_data / FIXTURE)}})
+    ))
+    labels = " ".join(r.message for r in results)
+    assert "phyloseq" in labels  # the phyloseq R package is checked for this entry point
+    assert all(r.ok for r in results)

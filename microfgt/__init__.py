@@ -11,6 +11,8 @@ from microfgt.cst import classify_cst
 from microfgt.io import (
     build_mudata,
     collapse_to_taxon,
+    existing_cst,
+    import_phyloseq,
     import_speciateit,
     import_valencia,
     import_virgo,
@@ -22,6 +24,8 @@ __all__ = [
     "classify_cst",
     "collapse_to_taxon",
     "describe_composition",
+    "existing_cst",
+    "import_phyloseq",
     "import_speciateit",
     "import_valencia",
     "import_virgo",

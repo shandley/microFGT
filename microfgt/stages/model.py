@@ -20,6 +20,8 @@ from typing import Callable
 ARTIFACT_FILENAMES: dict[str, str | None] = {
     "fastq_dir": None,               # provided: raw amplicon FASTQs
     "valencia_output": None,         # provided: an existing VALENCIA CSV
+    "phyloseq_rds": None,            # provided: a phyloseq .rds (composition + taxonomy + CST)
+    "phyloseq_cst": None,            # provided: signal to take CST from the phyloseq (= the .rds)
     "trimmed_reads": "trimmed",      # dir of primer-trimmed FASTQs
     "asv_table": "asv_table.csv",
     "asv_seqs": "asv_seqs.fasta",

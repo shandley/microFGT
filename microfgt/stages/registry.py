@@ -38,8 +38,16 @@ def provided_artifacts(config: dict) -> dict[str, str]:
         provided["speciateit_results"] = sit["results"]
     if sit.get("count_table"):
         provided["asv_table"] = sit["count_table"]
-    if config.get("cst", {}).get("valencia"):
-        provided["valencia_output"] = config["cst"]["valencia"]
+    cst_cfg = config.get("cst", {})
+    if comp.get("phyloseq"):
+        provided["phyloseq_rds"] = comp["phyloseq"]
+        # A phyloseq entry supplies its own CST by default; an explicit cst source
+        # (method / valencia) overrides it, so only offer phyloseq as the CST producer
+        # when neither is set.
+        if not cst_cfg.get("method") and not cst_cfg.get("valencia"):
+            provided["phyloseq_cst"] = comp["phyloseq"]
+    if cst_cfg.get("valencia"):
+        provided["valencia_output"] = cst_cfg["valencia"]
     return provided
 
 
@@ -95,6 +103,31 @@ def _run_import_composition(ctx: StageContext) -> None:
     adata.write(ctx.path("composition"))
 
 
+def _run_import_phyloseq(ctx: StageContext) -> None:
+    from microfgt.io import import_phyloseq
+
+    rscript = ctx.config.get("composition", {}).get("phyloseq_rscript", "Rscript")
+    adata = import_phyloseq(ctx.path("phyloseq_rds"), rscript=rscript)
+    adata.write(ctx.path("composition"))
+
+
+def _run_cst_phyloseq(ctx: StageContext) -> None:
+    import anndata as ad
+
+    from microfgt.io import existing_cst
+
+    # The composition h5ad written by import_phyloseq already carries CST in its obs;
+    # pull it out rather than re-reading the .rds.
+    adata = ad.read_h5ad(ctx.path("composition"))
+    cst = existing_cst(adata)
+    if cst is None:
+        raise ValueError(
+            "cst source is the phyloseq object, but it carried no CST/subCST/score. "
+            "Set cst.method to classify from the composition instead."
+        )
+    cst.to_csv(ctx.path("cst"))
+
+
 def _run_cst_classify(ctx: StageContext) -> None:
     import anndata as ad
 
@@ -148,6 +181,12 @@ def _req_denoise(cfg):
             Requirement("rpackage", "dada2", "install the Bioconductor dada2 package")]
 
 
+def _req_import_phyloseq(cfg):
+    rscript = cfg.get("composition", {}).get("phyloseq_rscript", "Rscript")
+    return [Requirement("binary", rscript, "install R"),
+            Requirement("rpackage", "phyloseq", "install the Bioconductor phyloseq package")]
+
+
 def _req_assign(cfg):
     sit = cfg.get("composition", {}).get("speciateit", {})
     reqs = [Requirement("binary", sit.get("classify", "classify"),
@@ -165,8 +204,13 @@ STAGES = [
     Stage("assign", ("asv_seqs",), ("speciateit_results",), _run_assign, _req_assign),
     Stage("import_composition", ("speciateit_results", "asv_table"), ("composition",),
           _run_import_composition),
+    Stage("import_phyloseq", ("phyloseq_rds",), ("composition",),
+          _run_import_phyloseq, _req_import_phyloseq),
     Stage("cst_classify", ("composition",), ("cst",), _run_cst_classify),
     Stage("cst_valencia", ("valencia_output",), ("cst",), _run_cst_valencia),
+    # phyloseq CST reads the composition h5ad's obs; phyloseq_cst is the selection gate
+    # (present only when the phyloseq object is the chosen CST source).
+    Stage("cst_phyloseq", ("composition", "phyloseq_cst"), ("cst",), _run_cst_phyloseq),
     Stage("integrate", ("composition", "cst"), ("mudata",), _run_integrate),
 ]
 STAGE_BY_ID = {s.id: s for s in STAGES}

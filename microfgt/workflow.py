@@ -8,11 +8,14 @@ Config shape (any subset; see example_config.yaml at the repo root):
 
     composition:
       speciateit: {results: MC_order7_results.txt, count_table: counts.csv}
+      # OR enter at a phyloseq .rds (the standard 16S container):
+      # phyloseq: path/to/ps.rds
     function:
       virgo: {dir: path/to/virgo_outs}
     cst:
       method: centroid            # classify from composition, OR
       valencia: valencia_out.csv  # import existing VALENCIA labels
+      # (a phyloseq entry with neither set defaults to the object's own CST)
     analysis:
       transforms: [relabund, clr]
       alpha: [shannon]
@@ -33,6 +36,8 @@ from microfgt.cst import classify_cst
 from microfgt.io import (
     build_mudata,
     collapse_to_taxon,
+    existing_cst,
+    import_phyloseq,
     import_speciateit,
     import_valencia,
     import_virgo,
@@ -74,17 +79,27 @@ def run_workflow(config: dict) -> md.MuData:
         s = comp_cfg["speciateit"]
         composition = import_speciateit(s["results"], s["count_table"], fasta=s.get("fasta"))
         composition_taxon = collapse_to_taxon(composition)
+    elif "phyloseq" in comp_cfg:
+        # Enter late: a phyloseq .rds carries composition + taxonomy (+ often a CST) already.
+        composition = import_phyloseq(
+            comp_cfg["phyloseq"], rscript=comp_cfg.get("phyloseq_rscript", "Rscript")
+        )
+        composition_taxon = collapse_to_taxon(composition)
 
     func_cfg = config.get("function", {})
     if "virgo" in func_cfg:
         function = import_virgo(func_cfg["virgo"]["dir"])
 
-    # CST is computed from the taxon roll-up (VALENCIA operates on taxon abundances).
+    # CST is computed from the taxon roll-up (VALENCIA operates on taxon abundances). An
+    # explicit source (valencia / method) always wins; otherwise a phyloseq entry defaults
+    # to trusting the object's own CST.
     cst_cfg = config.get("cst", {})
     if "valencia" in cst_cfg:
         cst = import_valencia(cst_cfg["valencia"])
     elif cst_cfg.get("method") and composition_taxon is not None:
         cst = classify_cst(composition_taxon, method=cst_cfg["method"])
+    elif "phyloseq" in comp_cfg and composition is not None:
+        cst = existing_cst(composition)
 
     # Analysis runs on the ASV-grain composition modality before assembly (results live on it).
     if composition is not None and config.get("analysis"):
