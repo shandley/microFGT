@@ -126,3 +126,6 @@ dist/
 
 # Local validation data (large VALENCIA published dataset; not committed)
 .validation_data/
+
+# Local validation outputs derived from real cohort data (not for the public repo)
+validation/*.csv
