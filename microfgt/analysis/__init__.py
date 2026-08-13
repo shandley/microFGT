@@ -12,6 +12,7 @@
   user makes.
 """
 
+from microfgt.analysis.abundance import compare_abundance
 from microfgt.analysis.association import associate
 from microfgt.analysis.diffabund import differential_abundance
 from microfgt.analysis.diversity import alpha_diversity, beta_diversity, ordinate
@@ -31,4 +32,5 @@ __all__ = [
     "compare_alpha",
     "compare_beta",
     "associate",
+    "compare_abundance",
 ]
