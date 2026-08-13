@@ -7,6 +7,7 @@ NOT guessed.
 """
 
 from microfgt.io.integrate import build_mudata
+from microfgt.io.phyloseq import existing_cst, import_phyloseq
 from microfgt.io.speciateit import collapse_to_taxon, import_speciateit
 from microfgt.io.valencia import import_valencia
 from microfgt.io.virgo import import_virgo
@@ -14,6 +15,8 @@ from microfgt.io.virgo import import_virgo
 __all__ = [
     "build_mudata",
     "collapse_to_taxon",
+    "existing_cst",
+    "import_phyloseq",
     "import_speciateit",
     "import_valencia",
     "import_virgo",
