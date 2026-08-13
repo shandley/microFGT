@@ -12,6 +12,7 @@
   user makes.
 """
 
+from microfgt.analysis.association import associate
 from microfgt.analysis.diffabund import differential_abundance
 from microfgt.analysis.diversity import alpha_diversity, beta_diversity, ordinate
 from microfgt.analysis.hypothesis import compare_alpha, compare_beta
@@ -29,4 +30,5 @@ __all__ = [
     "AnalysisResult",
     "compare_alpha",
     "compare_beta",
+    "associate",
 ]
