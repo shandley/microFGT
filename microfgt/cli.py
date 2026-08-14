@@ -65,6 +65,10 @@ def build_parser() -> argparse.ArgumentParser:
     ana.add_argument("--diffabund-group", default=None, metavar="OBS_COL")
     ana.set_defaults(_run=_cmd_analyze)
 
+    dash = sub.add_parser("dashboard", help="Launch the Streamlit dashboard (needs the [app] extra).")
+    dash.add_argument("-i", "--input", help="Preload this .h5mu object.")
+    dash.set_defaults(_run=_cmd_dashboard)
+
     rs = sub.add_parser("_run-stage", help=argparse.SUPPRESS)  # internal (Snakemake calls it)
     rs.add_argument("stage")
     rs.add_argument("--workdir", required=True)
@@ -144,6 +148,21 @@ def _cmd_classify(args: argparse.Namespace) -> None:
     print(f"wrote {args.output}: classified CST ({args.method}) for {cst.shape[0]} samples")
 
 
+def _cmd_dashboard(args: argparse.Namespace) -> None:
+    import os
+    import shutil
+    import subprocess
+    from importlib import resources
+
+    if shutil.which("streamlit") is None:
+        raise SystemExit("Streamlit is not installed. Install it with: pip install 'microfgt[app]'")
+    app = str(resources.files("microfgt.dashboard").joinpath("app.py"))
+    env = dict(os.environ)
+    if args.input:
+        env["MICROFGT_H5MU"] = str(args.input)
+    subprocess.run(["streamlit", "run", app], env=env)
+
+
 def _cmd_compare(args: argparse.Namespace) -> None:
     import mudata as md
 
@@ -151,23 +170,14 @@ def _cmd_compare(args: argparse.Namespace) -> None:
 
     mdata = md.read(args.input)
     preds = [p.strip() for p in args.predictors.split(",")] if args.predictors else None
-    if args.verb in ("alpha", "beta", "abundance") and not preds:
-        raise SystemExit(f"--verb {args.verb} needs --predictors.")
-
-    if args.verb == "alpha":
-        result = analysis.compare_alpha(mdata, preds, metric=args.metric or "shannon",
-                                        subject=args.subject, subset=args.subset)
-    elif args.verb == "beta":
-        result = analysis.compare_beta(mdata, preds, metric=args.metric or "braycurtis",
-                                       subset=args.subset)
-    elif args.verb == "abundance":
-        result = analysis.compare_abundance(mdata, preds, method=args.method or "ancombc",
-                                            subject=args.subject, subset=args.subset)
-    else:  # associate
-        if not (args.x and args.y):
-            raise SystemExit("--verb associate needs --x and --y.")
-        result = analysis.associate(mdata, args.x, args.y,
-                                    method=args.method or "auto", subset=args.subset)
+    metric = args.metric or ("braycurtis" if args.verb == "beta" else "shannon")
+    try:
+        result = analysis.run_verb(
+            mdata, args.verb, predictors=preds, x=args.x, y=args.y, subject=args.subject,
+            metric=metric, method=args.method, subset=args.subset,
+        )
+    except ValueError as e:
+        raise SystemExit(str(e))
 
     print(result.summary())
     print(result.table.to_string())

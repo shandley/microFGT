@@ -32,6 +32,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "matplotlib>=3.6"]
 viz = ["matplotlib>=3.6"]
+app = ["streamlit>=1.30", "matplotlib>=3.6"]   # Layer 3 dashboard (microfgt dashboard)
 
 [project.scripts]
 microfgt = "microfgt.cli:main"

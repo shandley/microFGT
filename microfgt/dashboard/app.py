@@ -1,0 +1,117 @@
+"""microFGT dashboard — a thin Streamlit presenter over the analysis verbs.
+
+Launch it with ``microfgt dashboard -i your_object.h5mu`` (needs the ``[app]`` extra). Every
+control here just builds a *spec* of choices and hands it to ``run_verb``; the result draws
+itself via ``viz.render``. There is no analysis logic in this file — that is the whole point
+(Layer-2 principle: the surface presents the same calls a power user makes).
+"""
+
+from __future__ import annotations
+
+import os
+
+import matplotlib
+
+matplotlib.use("Agg")
+
+import mudata as md
+import streamlit as st
+
+from microfgt.analysis import run_verb
+from microfgt.dashboard.catalog import as_frame, continuous, groupable, variable_catalog
+from microfgt.viz import render
+
+_VERB_LABELS = {
+    "alpha": "Alpha diversity ~ group",
+    "beta": "Beta diversity (PERMANOVA)",
+    "associate": "Associate two variables",
+    "abundance": "Differential abundance",
+}
+
+
+@st.cache_data(show_spinner=False)
+def _load(path: str):
+    return md.read(path)
+
+
+def _sidebar_spec(mdata):
+    """Build the (verb, kwargs) spec from the object's variables — the user's choices."""
+    catalog = variable_catalog(mdata)
+    groups = groupable(catalog)
+    conts = continuous(catalog)
+    allvars = [v.name for v in catalog]
+    catmap = {v.name: v for v in catalog}
+
+    verb = st.sidebar.selectbox("Analysis", list(_VERB_LABELS),
+                                format_func=lambda v: _VERB_LABELS[v])
+    kwargs: dict = {}
+
+    if verb == "associate":
+        kwargs["x"] = st.sidebar.selectbox("Variable X", allvars)
+        kwargs["y"] = st.sidebar.selectbox("Variable Y", [v for v in allvars if v != kwargs["x"]])
+    else:
+        options = groups or allvars
+        primary = st.sidebar.selectbox("Predictor of interest", options)
+        preds = [primary]
+        if verb in ("alpha", "abundance"):
+            preds += st.sidebar.multiselect("Adjust for (covariates)",
+                                            [v for v in allvars if v != primary])
+            subj = st.sidebar.selectbox("Subject (repeated measures)", ["(none)"] + groups)
+            kwargs["subject"] = None if subj == "(none)" else subj
+        kwargs["predictors"] = preds
+        if verb == "alpha":
+            kwargs["metric"] = st.sidebar.selectbox("Alpha metric", ["shannon", "simpson"])
+        if verb == "abundance":
+            kwargs["method"] = st.sidebar.selectbox("Method", ["ancombc", "dirmult_lme"])
+
+    with st.sidebar.expander("Subset (optional)"):
+        scol = st.selectbox("Restrict by", ["(all samples)"] + groups)
+        if scol != "(all samples)":
+            keep = st.multiselect("Keep values", catmap[scol].levels, default=catmap[scol].levels)
+            if keep:
+                kwargs["subset"] = {scol: keep}
+
+    return verb, kwargs, catalog
+
+
+def main():
+    st.set_page_config(page_title="microFGT", layout="wide")
+    st.title("microFGT — explore your integrated object")
+
+    path = st.sidebar.text_input("Object (.h5mu)", value=os.environ.get("MICROFGT_H5MU", ""))
+    if not path:
+        st.info("Enter the path to a microFGT `.h5mu` object in the sidebar to begin.")
+        return
+    try:
+        mdata = _load(path)
+    except Exception as e:  # noqa: BLE001 - surface any read error to the user
+        st.error(f"Could not read `{path}`: {e}")
+        return
+
+    st.sidebar.success(f"{mdata.n_obs} samples · modalities: {', '.join(mdata.mod)}")
+    verb, kwargs, catalog = _sidebar_spec(mdata)
+
+    st.caption("Variables available to explore")
+    st.dataframe(as_frame(catalog), use_container_width=True, height=200)
+
+    if not st.sidebar.button("Run", type="primary"):
+        return
+    try:
+        with st.spinner("Running…"):
+            result = run_verb(mdata, verb, **kwargs)
+    except Exception as e:  # noqa: BLE001 - a bad selection should message, not crash
+        st.error(str(e))
+        return
+
+    st.subheader(result.summary())
+    fig_col, tbl_col = st.columns(2)
+    with fig_col:
+        st.pyplot(render(result).figure)
+    with tbl_col:
+        st.dataframe(result.table, use_container_width=True)
+    with st.expander("stats · spec · notes"):
+        st.json({"stats": result.stats, "spec": result.spec, "notes": result.notes})
+
+
+if __name__ == "__main__":
+    main()

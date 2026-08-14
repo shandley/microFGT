@@ -15,6 +15,7 @@
 from microfgt.analysis.abundance import compare_abundance
 from microfgt.analysis.association import associate
 from microfgt.analysis.diffabund import differential_abundance
+from microfgt.analysis.dispatch import VERBS, run_verb
 from microfgt.analysis.diversity import alpha_diversity, beta_diversity, ordinate
 from microfgt.analysis.hypothesis import compare_alpha, compare_beta
 from microfgt.analysis.results import AnalysisResult
@@ -33,4 +34,6 @@ __all__ = [
     "compare_beta",
     "associate",
     "compare_abundance",
+    "run_verb",
+    "VERBS",
 ]
