@@ -42,17 +42,24 @@ def get_assay(data, modality=None, prefer=("composition_taxon", "composition")):
 
 
 def merged_obs(data, modality=None) -> pd.DataFrame:
-    """A sample-level view where a predictor is found wherever it sits.
+    """A sample-level view where a predictor is found wherever it sits, named once.
 
     Clinical/sample metadata is sample-level, but it may physically ride on any assay's obs
     (e.g. a phyloseq's ``sample_data`` lands on ``composition.obs``) rather than the global
     ``MuData.obs``. So we union global obs with *every* modality's obs — global first, then
-    modalities in order — and the first definition of a column name wins. The ``modality``
-    argument is accepted for symmetry but does not restrict which columns are visible.
+    modalities in order — and the first definition of a column name wins.
+
+    MuData stores a modality's obs in the global frame under a ``<modality>:`` prefix (this
+    happens automatically on write/read), so the same variable shows up as both
+    ``composition:HIV_status`` (global) and ``HIV_status`` (modality). That prefix is a storage
+    artifact, not a distinct variable: we strip it and collapse the two to one clean name.
+    The ``modality`` argument is accepted for symmetry but does not restrict what is visible.
     """
     frames = []
+    prefixes: tuple[str, ...] = ()
     if is_mudata(data):
         frames.append(data.obs)
+        prefixes = tuple(f"{m}:" for m in data.mod)
         for mod in data.mod:
             frames.append(data[mod].obs)
     else:
@@ -62,9 +69,18 @@ def merged_obs(data, modality=None) -> pd.DataFrame:
         fr = fr.copy()
         fr.index = fr.index.astype(str)
         for col in fr.columns:
-            if col not in out.columns:                      # global first, then modalities
-                out[col] = fr[col].reindex(out.index)
+            clean = _strip_modality_prefix(str(col), prefixes)
+            if clean not in out.columns:                    # first definition wins
+                out[clean] = fr[col].reindex(out.index)
     return out
+
+
+def _strip_modality_prefix(col: str, prefixes: tuple[str, ...]) -> str:
+    """Drop a leading ``<modality>:`` (MuData's storage prefix) to get the clean variable name."""
+    for p in prefixes:
+        if col.startswith(p):
+            return col[len(p):]
+    return col
 
 
 def _apply_subset(obs: pd.DataFrame, subset) -> pd.DataFrame:

@@ -63,6 +63,18 @@ def test_as_frame_overview(data):
     assert "CST" in frame.index
 
 
+def test_catalog_dedupes_mudata_modality_prefixes(data, tmp_path):
+    # On write/read, MuData copies modality obs into global .obs under a 'composition:' prefix.
+    # The catalog must present each variable ONCE under its clean name, not twice.
+    p = tmp_path / "obj.h5mu"
+    data.write(p)
+    reloaded = md.read(p)
+    names = [v.name for v in variable_catalog(reloaded)]
+    assert not any(":" in n for n in names)          # no 'composition:...' leakage
+    assert names.count("CST") == 1
+    assert names.count("score") == 1
+
+
 # --- dispatch -------------------------------------------------------------------------------
 def test_run_verb_dispatches_each_verb(data):
     assert set(VERBS) == {"alpha", "beta", "associate", "abundance"}
