@@ -104,19 +104,59 @@ def main():
         st.sidebar.caption(f"`taxa_over_threshold` = # taxa above {pct}% (adjust above)")
 
     verb, kwargs, catalog = _sidebar_spec(mdata)
+    run = st.sidebar.button("Run", type="primary")
 
-    st.caption("Variables available to explore")
-    st.dataframe(as_frame(catalog), use_container_width=True, height=200)
+    home_tab, analysis_tab = st.tabs(["🏠 Home", "📊 Analysis"])
+    with home_tab:
+        _render_home(mdata, catalog, path)
+    with analysis_tab:
+        if not run:
+            st.info("Configure an analysis in the sidebar, then click **Run**.")
+        else:
+            try:
+                with st.spinner("Running…"):
+                    result = run_verb(mdata, verb, **kwargs)
+            except Exception as e:  # noqa: BLE001 - a bad selection should message, not crash
+                st.error(str(e))
+            else:
+                _render_result(result)
 
-    if not st.sidebar.button("Run", type="primary"):
-        return
-    try:
-        with st.spinner("Running…"):
-            result = run_verb(mdata, verb, **kwargs)
-    except Exception as e:  # noqa: BLE001 - a bad selection should message, not crash
-        st.error(str(e))
-        return
 
+def _render_home(mdata, catalog, path):
+    """Overview tab: cohort at a glance + the standard FGT plots."""
+    obs = mdata.obs
+    n_taxa = mdata["composition_taxon"].n_vars if "composition_taxon" in mdata.mod else mdata.n_vars
+    cols = st.columns(5)
+    cols[0].metric("Samples", f"{mdata.n_obs:,}")
+    cols[1].metric("Taxa", f"{n_taxa:,}")
+    subj = obs["PID"].nunique() if "PID" in obs.columns else None
+    cols[2].metric("Subjects", f"{subj:,}" if subj else "—")
+    cols[3].metric("CSTs", obs["CST"].nunique() if "CST" in obs.columns else "—")
+    depth = obs["read_count"].median() if "read_count" in obs.columns else None
+    cols[4].metric("Median reads", f"{int(depth):,}" if depth else "—")
+
+    figs = _overview_figs(path)
+    if "community" in figs:
+        st.markdown("**Community composition** — each column is one sample")
+        st.pyplot(figs["community"])            # the iconic full-width composition stack
+    row = st.columns(2)
+    for name, col in zip(("cst", "diversity", "dominance", "ordination"), (row[0], row[1], row[0], row[1])):
+        if name in figs:
+            col.pyplot(figs[name])
+
+    with st.expander("Variables available to explore"):
+        st.dataframe(as_frame(catalog), use_container_width=True, height=240)
+
+
+@st.cache_resource(show_spinner="Building overview…")
+def _overview_figs(path: str):
+    # cache_resource keyed on the object path so the (heavier) overview computes once, not every rerun.
+    from microfgt.viz.overview import overview_figures
+
+    return overview_figures(_load(path))
+
+
+def _render_result(result):
     st.subheader(result.summary())
     fig_col, tbl_col = st.columns(2)
     with fig_col:
