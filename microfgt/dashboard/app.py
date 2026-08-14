@@ -90,6 +90,19 @@ def main():
         return
 
     st.sidebar.success(f"{mdata.n_obs} samples · modalities: {', '.join(mdata.mod)}")
+
+    # Parameterized descriptor, materialized on demand (not stored on the object): the cutoff is
+    # an exploration knob, not a baked-in constant. Recomputed each run at the slider's value.
+    if "composition_taxon" in mdata.mod:
+        from microfgt.characterize import taxa_over_threshold
+
+        pct = st.sidebar.slider("Richness cutoff (% abundance)", 1, 50, 10,
+                                help="# taxa above this relative abundance — an adjustable view. "
+                                     "The cutoff-free evenness lives in `effective_taxa`.")
+        counts = taxa_over_threshold(mdata["composition_taxon"], pct / 100)
+        mdata.obs["taxa_over_threshold"] = counts.reindex(mdata.obs_names.astype(str)).to_numpy()
+        st.sidebar.caption(f"`taxa_over_threshold` = # taxa above {pct}% (adjust above)")
+
     verb, kwargs, catalog = _sidebar_spec(mdata)
 
     st.caption("Variables available to explore")

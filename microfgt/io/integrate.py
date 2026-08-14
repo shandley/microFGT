@@ -108,8 +108,8 @@ def build_mudata(
         ASV-grain, it is materialised automatically via :func:`microfgt.io.collapse_to_taxon`
         (the taxon view is always present).
     descriptors:
-        If True (default), compute the augment descriptors (dominant taxon, % dominant,
-        # taxa >10%) from the taxon roll-up and attach them to ``.obs``.
+        If True (default), compute the intrinsic augment descriptors (dominant taxon,
+        % dominant, effective # taxa) from the taxon roll-up and attach them to ``.obs``.
 
     Returns
     -------

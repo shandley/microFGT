@@ -50,7 +50,7 @@ config provides** — microFGT resolves the shortest path to a finished object:
 The output is one `.h5mu` (MuData) holding sample-keyed assays — `composition`
 (ASV×sample; the source of truth, carrying each ASV's sequence), its taxon roll-up
 `composition_taxon` (taxon×sample), and optionally `function` (gene×sample) — with the CST
-label, its **augment descriptors** (dominant taxon, % dominant, # taxa >10%), and analysis
+label, its **augment descriptors** (dominant taxon, % dominant, effective # taxa), and analysis
 results attached as sample-level annotations. CST stays one method (VALENCIA); the
 descriptors surface the community structure a single class flattens, without competing it.
 
@@ -222,6 +222,6 @@ was written. -->
   compositional steps, recorded in `uns`, never silently dropped).
 - **Augment descriptors (not rival CST)** ✅ CST is one blessed method (VALENCIA); the
   diffuse/continuum structure it flattens is read out by *augmenting* the label with
-  per-sample descriptors — dominant taxon, % dominant, # taxa >10% — attached alongside CST.
+  per-sample descriptors — dominant taxon, % dominant, effective # taxa — attached alongside CST.
   (This replaces the earlier "alternative CST methods" framing: the object carries ASVs and
   their sequences as the source of truth, with a materialised `composition_taxon` roll-up.)

@@ -3,7 +3,7 @@
 CST is a single field standard: **VALENCIA**, ported as ``centroid`` and validated to
 99.94% subCST agreement. It is not computed multiple ways and it is not competed against
 rival classifiers — the community structure VALENCIA flattens is surfaced by *augmenting*
-CST with interpretable descriptors (dominant taxon, % dominant, # taxa >10%), not by
+CST with interpretable descriptors (dominant taxon, % dominant, effective # taxa), not by
 swapping in alternative CST methods.
 
 ``register_method`` remains as a genuine extension point (e.g. a user's own centroid set or

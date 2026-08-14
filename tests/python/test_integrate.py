@@ -56,7 +56,7 @@ def test_build_mudata_materialises_taxon_assay_and_descriptors():
 
     # CST attached, and the augment descriptors alongside it.
     assert list(mdata.obs["CST"]) == ["I", "IV-A", "III"]
-    for col in ("dominant_taxon", "dominance_pct", "n_taxa_over_10pct"):
+    for col in ("dominant_taxon", "dominance_pct", "effective_taxa"):
         assert col in mdata.obs
 
     recon = mdata.uns["reconciliation"]
