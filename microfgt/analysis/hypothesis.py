@@ -87,15 +87,20 @@ def compare_alpha(
     else:
         table, stats = _alpha_model(frame, preds, subject, chosen)
 
+    y_name = f"alpha_{metric}"
+    plot_data = frame[[preds[0]]].copy()
+    plot_data[y_name] = frame["alpha"].to_numpy()
+
     return AnalysisResult(
         verb="compare_alpha",
         table=table,
         stats=stats,
-        spec={"outcome": f"alpha_{metric}", "predictors": preds, "subject": subject,
+        spec={"outcome": y_name, "predictors": preds, "subject": subject,
               "subset": subset, "modality": mod, "metric": metric},
-        plot={"kind": "box", "y": f"alpha_{metric}", "x": preds[0],
+        plot={"kind": "box", "y": y_name, "x": preds[0],
               "modality": mod, "note": "boxplot of alpha by the first predictor"},
         notes=notes,
+        data=plot_data,
     )
 
 
@@ -188,6 +193,7 @@ def compare_beta(
     subset=None,
     permutations: int = 999,
     dispersion: bool = True,
+    ordinate: bool = True,
     layer: str = "counts",
 ) -> AnalysisResult:
     """PERMANOVA: does community composition differ across a categorical ``obs`` predictor?
@@ -241,14 +247,28 @@ def compare_beta(
         notes["warning"] = ("Python PERMANOVA is single-factor; covariate-adjusted adonis2 "
                             "is the R-orchestrated follow-up.")
 
+    plot_data = None
+    if ordinate:
+        from skbio.stats.ordination import pcoa
+
+        res = pcoa(dm, number_of_dimensions=2)
+        coords = res.samples.iloc[:, :2]
+        plot_data = pd.DataFrame(
+            {"PC1": coords.iloc[:, 0].to_numpy(), "PC2": coords.iloc[:, 1].to_numpy(),
+             group_col: grouping.reindex(coords.index).to_numpy()},
+            index=pd.Index(coords.index, name="sample"),
+        )
+        stats["proportion_explained"] = [float(v) for v in res.proportion_explained.iloc[:2]]
+
     return AnalysisResult(
         verb="compare_beta",
         table=table,
         stats=stats,
         spec={"predictors": preds, "subset": subset, "modality": mod, "metric": metric},
-        plot={"kind": "ordination", "obsm": "X_pcoa", "color": group_col, "modality": mod,
+        plot={"kind": "ordination", "x": "PC1", "y": "PC2", "color": group_col, "modality": mod,
               "note": "PCoA scatter colored by the predictor"},
         notes=notes,
+        data=plot_data,
     )
 
 

@@ -25,7 +25,13 @@ import pandas as pd
 
 @dataclass
 class AnalysisResult:
-    """One analysis verb's result: a tidy table + headline stats + a declarative plot spec."""
+    """One analysis verb's result: a tidy table + headline stats + a self-drawing plot.
+
+    ``plot`` is the *declarative* spec (kind + which fields); ``data`` is the compact frame
+    that spec draws from (per-sample values, ordination coords) when the ``table`` itself is
+    not the plot source. Together they let :func:`microfgt.viz.render` draw the result with no
+    other input — so the same call works for a power user and for the dashboard.
+    """
 
     verb: str
     table: pd.DataFrame
@@ -33,6 +39,7 @@ class AnalysisResult:
     spec: dict = field(default_factory=dict)
     plot: dict = field(default_factory=dict)
     notes: dict = field(default_factory=dict)
+    data: pd.DataFrame | None = None       # frame the plot draws from (None -> use `table`)
 
     @property
     def pvalue(self):
@@ -58,7 +65,7 @@ class AnalysisResult:
         return " | ".join(bits)
 
     def to_dict(self) -> dict:
-        """JSON-friendly view (``table`` becomes records) for a web boundary / provenance."""
+        """JSON-friendly view (frames become records) for a web boundary / provenance."""
         return {
             "verb": self.verb,
             "table": self.table.reset_index().to_dict(orient="list"),
@@ -66,4 +73,5 @@ class AnalysisResult:
             "spec": self.spec,
             "plot": self.plot,
             "notes": self.notes,
+            "data": None if self.data is None else self.data.reset_index().to_dict(orient="list"),
         }

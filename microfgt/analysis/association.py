@@ -66,6 +66,7 @@ def associate(
     x_cat, y_cat = is_categorical(frame[x]), is_categorical(frame[y])
     kind = _dispatch(method, x_cat, y_cat)
 
+    plot_data = None
     if kind in ("chi2", "fisher"):
         table, stats = _cat_cat(frame, x, y, kind)
         plot = {"kind": "heatmap", "x": x, "y": y, "note": "contingency table"}
@@ -73,9 +74,12 @@ def associate(
         cat, cont = (x, y) if x_cat else (y, x)
         table, stats = _cat_cont(frame, cat, cont, kind)
         plot = {"kind": "box", "x": cat, "y": cont, "note": f"{cont} across {cat}"}
+        plot_data = frame[[cat, cont]].copy()
+        plot_data[cont] = pd.to_numeric(plot_data[cont], errors="coerce")
     else:
         table, stats = _cont_cont(frame, x, y, kind)
         plot = {"kind": "scatter", "x": x, "y": y, "note": "with correlation"}
+        plot_data = frame[[x, y]].apply(pd.to_numeric, errors="coerce")
 
     return AnalysisResult(
         verb="associate",
@@ -86,6 +90,7 @@ def associate(
               "y_type": "categorical" if y_cat else "continuous"},
         plot=plot,
         notes=notes,
+        data=plot_data,
     )
 
 
