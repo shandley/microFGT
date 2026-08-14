@@ -40,6 +40,21 @@ def build_parser() -> argparse.ArgumentParser:
     clf.add_argument("-m", "--method", default="centroid")
     clf.set_defaults(_run=_cmd_classify)
 
+    cmp = sub.add_parser("compare", help="Run a hypothesis-test verb on a .h5mu; print/save the result.")
+    cmp.add_argument("-i", "--input", required=True)
+    cmp.add_argument("--verb", required=True, choices=["alpha", "beta", "abundance", "associate"])
+    cmp.add_argument("--predictors", help="Comma-separated obs columns (alpha/beta/abundance); "
+                     "first is the predictor of interest.")
+    cmp.add_argument("--x"); cmp.add_argument("--y")                 # associate
+    cmp.add_argument("--subject", help="obs subject-id column (repeated measures).")
+    cmp.add_argument("--metric", default=None, help="diversity metric (default: shannon for "
+                     "alpha, braycurtis for beta).")
+    cmp.add_argument("--method", help="verb method override (e.g. ancombc / dirmult_lme / fisher).")
+    cmp.add_argument("--subset", help="Restrict samples: a pandas query string.")
+    cmp.add_argument("-o", "--output", help="Write the result table to this CSV.")
+    cmp.add_argument("--plot", help="Render the result to this image (PNG/SVG).")
+    cmp.set_defaults(_run=_cmd_compare)
+
     ana = sub.add_parser("analyze", help="Run analysis steps on a .h5mu's composition modality.")
     ana.add_argument("-i", "--input", required=True)
     ana.add_argument("-o", "--output", required=True)
@@ -127,6 +142,47 @@ def _cmd_classify(args: argparse.Namespace) -> None:
     _attach_cst(mdata, cst)
     mdata.write(args.output)
     print(f"wrote {args.output}: classified CST ({args.method}) for {cst.shape[0]} samples")
+
+
+def _cmd_compare(args: argparse.Namespace) -> None:
+    import mudata as md
+
+    from microfgt import analysis
+
+    mdata = md.read(args.input)
+    preds = [p.strip() for p in args.predictors.split(",")] if args.predictors else None
+    if args.verb in ("alpha", "beta", "abundance") and not preds:
+        raise SystemExit(f"--verb {args.verb} needs --predictors.")
+
+    if args.verb == "alpha":
+        result = analysis.compare_alpha(mdata, preds, metric=args.metric or "shannon",
+                                        subject=args.subject, subset=args.subset)
+    elif args.verb == "beta":
+        result = analysis.compare_beta(mdata, preds, metric=args.metric or "braycurtis",
+                                       subset=args.subset)
+    elif args.verb == "abundance":
+        result = analysis.compare_abundance(mdata, preds, method=args.method or "ancombc",
+                                            subject=args.subject, subset=args.subset)
+    else:  # associate
+        if not (args.x and args.y):
+            raise SystemExit("--verb associate needs --x and --y.")
+        result = analysis.associate(mdata, args.x, args.y,
+                                    method=args.method or "auto", subset=args.subset)
+
+    print(result.summary())
+    print(result.table.to_string())
+    if args.output:
+        result.table.to_csv(args.output)
+        print(f"wrote {args.output}")
+    if args.plot:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from microfgt.viz import render
+
+        ax = render(result)
+        ax.figure.savefig(args.plot, dpi=110, bbox_inches="tight")
+        print(f"wrote {args.plot}")
 
 
 def _cmd_analyze(args: argparse.Namespace) -> None:
