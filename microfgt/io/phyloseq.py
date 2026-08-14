@@ -26,6 +26,7 @@ a deliberately later option, not this path.
 
 from __future__ import annotations
 
+import re
 import tempfile
 from contextlib import nullcontext
 from importlib import resources
@@ -39,6 +40,11 @@ from microfgt.io.speciateit import _genus_of
 
 _LABEL_COLS = ("CST", "subCST", "score")
 _MISSING = {"", "NA", "nan", "None", "<NA>"}
+# GTDB-style rank prefixes: a single rank letter (kingdom/domain/phylum/…/species) followed by
+# one or two underscores, e.g. ``g_Lactobacillus`` / ``d__Bacteria``. A lone rank letter + ``_``
+# never starts a real binomial (``Lactobacillus_iners``) or a ``Ca_`` (Candidatus) name, so this
+# strips the toolchain prefix without touching genuine labels.
+_GTDB_PREFIX = re.compile(r"^[kdpcofgs]__?")
 
 
 def _bundled_script() -> str:
@@ -46,8 +52,10 @@ def _bundled_script() -> str:
 
 
 def _clean(series: pd.Series) -> pd.Series:
-    """A tax-rank column as strings, with blanks / R ``NA`` sentinels turned into <NA>."""
-    s = series.astype("string")
+    """A tax-rank column as strings: strip GTDB rank prefixes and turn blanks / R ``NA``
+    sentinels into <NA>. Handles GTDB-taxonomy phyloseqs (e.g. HVTN) where labels arrive as
+    ``g_Lactobacillus``; leaves normal binomials and ``Ca_`` names untouched."""
+    s = series.astype("string").str.replace(_GTDB_PREFIX, "", regex=True)
     return s.mask(s.str.strip().isin(_MISSING))
 
 

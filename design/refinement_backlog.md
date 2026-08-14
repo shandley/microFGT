@@ -24,9 +24,13 @@ Status key: **TODO** · **NEXT** (queued to do soon) · **DONE** (kept for conti
 - **TODO — refseq slot support.** Today the importer assumes sequences ARE the `taxa_names`. A
   phyloseq named `ASV1…ASVn` with sequences in `refseq()` would keep the ids and lose the real
   sequences. Read `refseq()` when present.
-- **TODO — arbitrary rank schemes.** Classification requires ranks named
-  `Genus_Species`/`Species`/`Genus`. A QIIME2/mothur object with `Rank1…Rank7` (or SILVA-style)
-  imports structurally but lands **all-`Unclassified`**. Map/relabel common rank schemes.
+- **TODO — unrecognized rank *names*.** Classification looks for ranks named
+  `Genus_Species`/`Species`/`Genus`. A QIIME2/mothur object with `Rank1…Rank7` imports
+  structurally but lands **all-`Unclassified`**. Map/relabel common rank schemes. (GTDB-style
+  *prefixes* on recognized ranks are now handled — see Recently done.)
+- **TODO — placeholder taxonomy labels.** Both FRESH and HVTN carry "no-resolution" placeholders
+  like `Bacteria Domain` / `Lactobacillus Genus`. Optional display-cleanup (trust-but-tidy),
+  separate from the GTDB-prefix strip.
 
 ## Dashboard depth
 
@@ -58,6 +62,14 @@ Status key: **TODO** · **NEXT** (queued to do soon) · **DONE** (kept for conti
 
 ## Recently done (context)
 
+- **DONE — validated on a 2nd real cohort (HVTN, 4,856 samples × 34,904 ASVs).** Two-regime
+  `effective_taxa` signal replicated (CST I ~1.8 → CST IV-C ~10.5); rich clinical metadata
+  (STIs, contraceptives, HIV time-to-event). Surfaced + fixed the GTDB-prefix gap below.
+- **DONE — strip GTDB rank prefixes in `import_phyloseq`** (`g_Lactobacillus` → `Lactobacillus`).
+  HVTN's GTDB taxonomy was leaking `d_`/`g_` prefixes into 71% of labels and breaking genus
+  extraction; now clean, without touching normal binomials or `Ca_` (Candidatus) names.
+- **DONE — cutoff-free `effective_taxa` descriptor + adjustable `taxa_over_threshold`** (the
+  stored-vs-derived split; dashboard slider).
 - **DONE — switched demo object to the full merged FRESH dataset** (5,659 samples ×
   21,964 ASVs, rich metadata incl. `HIV_status`/`PID`/`week`) — was mistakenly using one run
   (893, MD1048). See `[[fresh-dataset]]` memory.
