@@ -29,8 +29,9 @@ _VERB_LABELS = {
 }
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_resource(show_spinner=False)
 def _load(path: str):
+    # cache_resource (not cache_data): a MuData is held by reference, not pickled.
     return md.read(path)
 
 
