@@ -21,9 +21,9 @@ def _function(samples, genes):
     )
 
 
-def test_no_method_registered_by_default():
-    # VISTA is orchestration; until it lands there is nothing to dispatch to.
-    assert mgcst.available_methods() == []
+def test_vista_is_the_registered_method():
+    # VISTA (the R random forest) is the one blessed method, registered at import.
+    assert mgcst.available_methods() == ["vista"]
 
 
 def test_classify_mgcst_raises_on_unknown_method():
@@ -32,10 +32,10 @@ def test_classify_mgcst_raises_on_unknown_method():
         mgcst.classify_mgcst(func, method="does-not-exist")
 
 
-def test_classify_mgcst_default_method_raises_until_vista_registered():
-    func = _function(["s1"], ["g1"])
-    with pytest.raises(ValueError, match="import_mgcst"):
-        mgcst.classify_mgcst(func)  # default "vista", not yet registered
+def test_vista_method_needs_compiled_or_function():
+    # Dispatch reaches the VISTA method; with neither compiled= nor a function it explains why.
+    with pytest.raises(ValueError, match="compiled=|function"):
+        mgcst.classify_mgcst(None, vista_repo="/nope", outdir="/tmp/x")
 
 
 def test_register_method_makes_it_dispatchable():

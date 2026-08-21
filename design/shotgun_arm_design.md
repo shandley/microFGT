@@ -162,17 +162,23 @@ docs + the optional `fetch-references` should encode:
 **Increment 1 — DONE** (object/import core, commit `ad6c314`): `import_virgo2` (+ annotation
 joins) alongside the kept v1 `import_virgo`; `collapse_virgo2_to_taxon` / `import_virgo2_taxonomy`
 (derived shotgun taxon); `import_mgcst` (VISTA `mgCSTs_*.csv`); `build_mudata` generalized
-(`composition_taxon_shotgun` + `mgcst` kwargs, `shotgun_` descriptors); `classify_mgcst` method
-seam (VISTA method still to register). All grounded in public ENA/PRJEB34536 fixtures.
+(`composition_taxon_shotgun` + `mgcst` kwargs, `shotgun_` descriptors). Grounded in public
+ENA/PRJEB34536 fixtures.
+
+**Increment 2 — DONE** (the running front-end): the `sg_qc → sg_host_removal → sg_virgo2_map →
+sg_virgo2_compile → import_function → classify_mgcst → integrate` chain in `stages/registry.py`,
+so `microfgt run` takes raw reads → `.h5mu`. Orchestrators (`orchestrate/fastp|host_removal|virgo2|
+vista.py`) grounded in `prototype/reference_scripts/RECIPE.md`; VISTA registered behind the
+`classify_mgcst` seam; `req_fn`s surface every wall via `microfgt check`; resolver routes 16S /
+metagenomics / combined via three `integrate` producers; config block is top-level `metagenomics:`.
+Stub-tool e2e proves the plumbing; real-tool correctness is the HTCF-run IOU.
 
 **Remaining:**
-1. Register the VISTA-running `classify_mgcst` method (R orchestration) behind the seam.
-2. Add `sg_qc`, `sg_host_removal`, `sg_virgo2_map`, `sg_virgo2_compile` stages + `req_fn`s, and
-   wire the shotgun modalities into the file-artifact `integrate` stage.
-3. Reference-fit + spike-derived absolute load as first-class `.obs`/`.uns` outputs.
-4. The Snakemake/Slurm executor should generate the array-job + resource scaling that the
-   audit did by hand (host removal ~72 G; VIRGO2 map ~32 G; deep samples run hours).
-5. (Optional) an mgSs feature modality from `norm_counts_mgSs_mgCST_*.csv`.
+1. Reference-fit + spike-derived absolute load as first-class `.obs`/`.uns` outputs.
+2. Snakemake/Slurm **resource** scaling (array-job mem/time from the RECIPE resource notes:
+   host removal peak ~13 G; VIRGO2 map OOM'd at 32 G / cleared at 64 G on the deepest samples).
+3. (Optional) an mgSs feature modality from `norm_counts_mgSs_mgCST_*.csv`.
+4. Real-tool validation on HTCF (discharge the stub-only IOU).
 
 ## Reference implementation (the working audit pipeline)
 

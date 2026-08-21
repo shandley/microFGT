@@ -7,9 +7,9 @@ references, resolutions), so they live in separate ``.obs`` columns and are reco
 an explicit analysis verb, never merged (see ``design/shotgun_arm_design.md``).
 
 This module is the method seam, structurally identical to :mod:`microfgt.cst`. The one blessed
-method — VISTA, which shells out to R — is **not registered here**: it belongs to the
-orchestration layer and lands in a later increment. Until then ``classify_mgcst`` has no method
-and raises helpfully, exactly like :func:`microfgt.cst.classify_cst` on an unknown method.
+method is **VISTA** (``classify_mgcst_vista`` in the orchestration layer), which shells out to R;
+it is registered at import. An unknown method name still raises helpfully, exactly like
+:func:`microfgt.cst.classify_cst`.
 
 Note the division of labour, parallel to the 16S side: ``classify_mgcst`` *computes* mgCST
 (runs VISTA); :func:`microfgt.io.import_mgcst` *imports* an existing VISTA output (the analogue
@@ -61,10 +61,19 @@ def classify_mgcst(function, method: str = "vista", **kwargs):
     if method not in _METHODS:
         raise ValueError(
             f"Unknown mgCST method {method!r}; available: {available_methods()}. "
-            "The VISTA method ships with the shotgun orchestration layer; to use an existing "
-            "VISTA output instead, import it with microfgt.io.import_mgcst."
+            "To use an existing VISTA output instead of running it, import it with "
+            "microfgt.io.import_mgcst."
         )
     return _METHODS[method](function, **kwargs)
 
+
+def _register_builtin_methods() -> None:
+    # VISTA is the one blessed method; it shells out to R (orchestration layer).
+    from microfgt.orchestrate.vista import classify_mgcst_vista
+
+    register_method("vista", classify_mgcst_vista)
+
+
+_register_builtin_methods()
 
 __all__ = ["classify_mgcst", "register_method", "available_methods"]

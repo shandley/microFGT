@@ -48,6 +48,16 @@ def provided_artifacts(config: dict) -> dict[str, str]:
             provided["phyloseq_cst"] = comp["phyloseq"]
     if cst_cfg.get("valencia"):
         provided["valencia_output"] = cst_cfg["valencia"]
+
+    # --- metagenomics (shotgun) arm entry points ---
+    mg = config.get("metagenomics", {})
+    reads = mg.get("reads", {})
+    if reads.get("fastq_dir"):
+        provided["sg_reads"] = reads["fastq_dir"]
+    if mg.get("compiled"):
+        provided["sg_compiled"] = mg["compiled"]
+    if config.get("mgcst", {}).get("vista_output"):
+        provided["vista_output"] = config["mgcst"]["vista_output"]
     return provided
 
 
@@ -148,25 +158,173 @@ def _run_cst_valencia(ctx: StageContext) -> None:
 
 
 def _run_integrate(ctx: StageContext) -> None:
+    """Shared final assembler for all three integrate producers (16S / metagenomics / combined).
+
+    Reads whichever modality artifacts are present in the workdir, derives the shotgun taxon
+    roll-up from the function assay, folds in provenance, and assembles one MuData. The three
+    Stage entries differ only in their declared inputs (so the resolver runs the right chains);
+    the assembly logic is identical."""
     import anndata as ad
     import pandas as pd
 
-    from microfgt.io import build_mudata, import_virgo
+    from microfgt.io import build_mudata, collapse_virgo2_to_taxon, import_virgo
     from microfgt.workflow import apply_analysis
 
-    comp = ad.read_h5ad(ctx.path("composition"))
-    cst = pd.read_csv(ctx.path("cst"), index_col=0)
-    cst.index = cst.index.astype(str)
+    def _read_csv(key):
+        df = pd.read_csv(ctx.path(key), index_col=0)
+        df.index = df.index.astype(str)
+        return df
 
-    func = None
-    fcfg = ctx.config.get("function", {})
-    if "virgo" in fcfg:
-        func = import_virgo(fcfg["virgo"]["dir"])
+    comp = ad.read_h5ad(ctx.path("composition")) if ctx.path("composition").exists() else None
+    cst = _read_csv("cst") if ctx.path("cst").exists() else None
+    mgcst = _read_csv("mgcst") if ctx.path("mgcst").exists() else None
 
-    if ctx.config.get("analysis"):
+    function = taxon_sg = None
+    if ctx.path("function").exists():
+        function = ad.read_h5ad(ctx.path("function"))
+        if "taxon" in function.var:                      # derive the shotgun taxon modality
+            taxon_sg = collapse_virgo2_to_taxon(function)
+    else:                                                # backward-compat: v1 function from config
+        fcfg = ctx.config.get("function", {})
+        if "virgo" in fcfg:
+            function = import_virgo(fcfg["virgo"]["dir"])
+
+    if comp is not None and ctx.config.get("analysis"):
         apply_analysis(comp, ctx.config["analysis"])
 
-    build_mudata(composition=comp, function=func, cst=cst).write(ctx.path("mudata"))
+    mdata = build_mudata(
+        composition=comp, function=function, cst=cst,
+        composition_taxon_shotgun=taxon_sg, mgcst=mgcst,
+    )
+    prov = _collect_provenance(ctx.workdir)
+    if prov:
+        import json
+
+        # Store as a JSON string: the nested RunRecords (argv lists, param dicts) are not
+        # h5-serializable as a raw nested dict, but a scalar string round-trips cleanly.
+        mdata.uns["metagenomics_runs"] = json.dumps(prov)
+    mdata.write(ctx.path("mudata"))
+
+
+# --- metagenomics (shotgun) stage run functions (reuse the orchestrators) ------------------
+def _mg(ctx: StageContext) -> dict:
+    return ctx.config.get("metagenomics", {})
+
+
+def _mg_require(ctx: StageContext, key: str):
+    val = _mg(ctx).get(key)
+    if not val:
+        raise ValueError(
+            f"metagenomics.{key} is required for this stage — set it in the config "
+            "(microfgt check reports it up front)."
+        )
+    return val
+
+
+def _write_provenance(ctx: StageContext, stage_id: str, records) -> None:
+    import json
+
+    prov_dir = ctx.workdir / "provenance"
+    prov_dir.mkdir(parents=True, exist_ok=True)
+    payload = [r.to_dict() for r in records]
+    (prov_dir / f"{stage_id}.json").write_text(json.dumps(payload, indent=2))
+
+
+def _collect_provenance(workdir) -> dict:
+    import json
+    from pathlib import Path
+
+    prov_dir = Path(workdir) / "provenance"
+    if not prov_dir.is_dir():
+        return {}
+    return {p.stem: json.loads(p.read_text()) for p in sorted(prov_dir.glob("*.json"))}
+
+
+def _run_sg_qc(ctx: StageContext) -> None:
+    from microfgt.orchestrate import run_fastp
+
+    records = run_fastp(
+        ctx.path("sg_reads"), ctx.path("sg_trimmed"),
+        threads=_mg(ctx).get("threads", 4), executable=_mg(ctx).get("fastp", "fastp"),
+    )
+    _write_provenance(ctx, "sg_qc", records)
+
+
+def _run_sg_host_removal(ctx: StageContext) -> None:
+    from microfgt.orchestrate import run_host_removal
+
+    records = run_host_removal(
+        ctx.path("sg_trimmed"), ctx.path("sg_nonhost"), _mg_require(ctx, "host_ref"),
+        threads=_mg(ctx).get("threads", 4),
+        minimap2=_mg(ctx).get("minimap2", "minimap2"),
+        samtools=_mg(ctx).get("samtools", "samtools"),
+    )
+    _write_provenance(ctx, "sg_host_removal", records)
+
+
+def _run_sg_virgo2_map(ctx: StageContext) -> None:
+    from microfgt.orchestrate import run_virgo2_map
+    from microfgt.orchestrate.cutadapt import discover_pairs
+
+    virgo2_dir = _mg_require(ctx, "virgo2_dir")
+    outdir = ctx.path("sg_virgo2_out")
+    pairs = discover_pairs(ctx.path("sg_nonhost"))
+    if not pairs:
+        raise FileNotFoundError(f"No host-removed FASTQ pairs found in {ctx.path('sg_nonhost')}.")
+    records = []
+    for sample, r1, r2 in pairs:
+        _, record = run_virgo2_map(
+            r1, r2, sample, virgo2_dir, outdir,
+            threads=_mg(ctx).get("threads", 4), python=_mg(ctx).get("python", "python3"),
+        )
+        records.append(record)
+    _write_provenance(ctx, "sg_virgo2_map", records)
+
+
+def _run_sg_virgo2_compile(ctx: StageContext) -> None:
+    from microfgt.orchestrate import run_virgo2_compile
+
+    _, record = run_virgo2_compile(
+        ctx.path("sg_virgo2_out"), _mg_require(ctx, "virgo2_dir"),
+        python=_mg(ctx).get("python", "python3"),
+    )
+    _write_provenance(ctx, "sg_virgo2_compile", [record])
+
+
+def _run_import_function(ctx: StageContext) -> None:
+    from pathlib import Path
+
+    from microfgt.io import import_virgo2
+
+    # Annotations are joined from the VIRGO2 install's AnnotationTables (taxon is used to derive
+    # the shotgun taxon modality). virgo2_dir is optional for a bare compiled entry.
+    taxon_ann = None
+    virgo2_dir = _mg(ctx).get("virgo2_dir")
+    annotations = dict(_mg(ctx).get("annotations", {}))
+    if virgo2_dir:
+        cand = Path(virgo2_dir) / "AnnotationTables" / "1.VIRGO2.taxon.txt"
+        if cand.exists():
+            taxon_ann = cand
+    adata = import_virgo2(
+        ctx.path("sg_compiled"), taxon_annotation=taxon_ann, annotations=annotations or None
+    )
+    adata.write(ctx.path("function"))
+
+
+def _run_classify_mgcst(ctx: StageContext) -> None:
+    from microfgt.orchestrate.vista import classify_mgcst_vista
+
+    df = classify_mgcst_vista(
+        compiled=ctx.path("sg_compiled"), vista_repo=_mg_require(ctx, "vista_repo"),
+        outdir=ctx.workdir / "vista", rscript=_mg(ctx).get("rscript", "Rscript"),
+    )
+    df.to_csv(ctx.path("mgcst"))
+
+
+def _run_import_mgcst_existing(ctx: StageContext) -> None:
+    from microfgt.io import import_mgcst
+
+    import_mgcst(ctx.path("vista_output")).to_csv(ctx.path("mgcst"))
 
 
 # --- requirements (entry-dependent; checked by the doctor) ---------------------------------
@@ -196,6 +354,69 @@ def _req_assign(cfg):
     return reqs
 
 
+# --- metagenomics req_fns (the audit's walls -> actionable check errors; per RECIPE.md) ----
+def _req_sg_qc(cfg):
+    mg = cfg.get("metagenomics", {})
+    return [Requirement("binary", mg.get("fastp", "fastp"), "install fastp (QC/trim)")]
+
+
+def _req_sg_host_removal(cfg):
+    mg = cfg.get("metagenomics", {})
+    reqs = [
+        Requirement("binary", mg.get("minimap2", "minimap2"), "install minimap2 (host removal)"),
+        Requirement("binary", mg.get("samtools", "samtools"), "install samtools (host removal)"),
+    ]
+    if mg.get("host_ref"):
+        reqs.append(Requirement("path", mg["host_ref"],
+                                "host genome for removal (e.g. GRCh38.fna.gz)"))
+    return reqs
+
+
+def _req_sg_virgo2_map(cfg):
+    from pathlib import Path
+
+    mg = cfg.get("metagenomics", {})
+    reqs = [
+        Requirement("binary", mg.get("python", "python3"), "python3 to run VIRGO2.py"),
+        Requirement("binary", mg.get("bowtie2", "bowtie2"), "install bowtie2 (VIRGO2 mapping)"),
+    ]
+    if mg.get("virgo2_dir"):
+        d = Path(mg["virgo2_dir"])
+        reqs.append(Requirement("path", str(d / "VIRGO2.py"), "VIRGO2.py in the VIRGO2 install"))
+        reqs.append(Requirement("path", str(d / "Index" / "VIRGO2.1.bt2"),
+                                "the VIRGO2 bowtie2 index (build once with VIRGO2.py install)"))
+    return reqs
+
+
+def _req_sg_virgo2_compile(cfg):
+    from pathlib import Path
+
+    mg = cfg.get("metagenomics", {})
+    reqs = [Requirement("binary", mg.get("python", "python3"), "python3 to run VIRGO2.py")]
+    if mg.get("virgo2_dir"):
+        reqs.append(Requirement("path", str(Path(mg["virgo2_dir"]) / "VIRGO2.py"),
+                                "VIRGO2.py in the VIRGO2 install"))
+    return reqs
+
+
+_VISTA_RPACKAGES = ("randomForestSRC", "pheatmap", "dplyr", "data.table", "R.utils")
+
+
+def _req_classify_mgcst(cfg):
+    from pathlib import Path
+
+    mg = cfg.get("metagenomics", {})
+    reqs = [Requirement("binary", mg.get("rscript", "Rscript"), "install R (VISTA classifier)")]
+    reqs += [Requirement("rpackage", pkg, f"install the R package {pkg} (VISTA)")
+             for pkg in _VISTA_RPACKAGES]
+    if mg.get("vista_repo"):
+        d = Path(mg["vista_repo"])
+        reqs.append(Requirement("path", str(d / "run_VISTA.R"), "run_VISTA.R in the VISTA repo"))
+        reqs.append(Requirement("path", str(d / "VISTA_data" / "volume"),
+                                "VISTA_data/ bundle (fetch from figshare)"))
+    return reqs
+
+
 # --- the registry --------------------------------------------------------------------------
 STAGES = [
     Stage("primer_trim", ("fastq_dir",), ("trimmed_reads",), _run_primer_trim, _req_primer_trim),
@@ -211,7 +432,26 @@ STAGES = [
     # phyloseq CST reads the composition h5ad's obs; phyloseq_cst is the selection gate
     # (present only when the phyloseq object is the chosen CST source).
     Stage("cst_phyloseq", ("composition", "phyloseq_cst"), ("cst",), _run_cst_phyloseq),
+    # --- metagenomics (shotgun) arm: reads -> compiled -> {function, mgcst} ---
+    Stage("sg_qc", ("sg_reads",), ("sg_trimmed",), _run_sg_qc, _req_sg_qc),
+    Stage("sg_host_removal", ("sg_trimmed",), ("sg_nonhost",),
+          _run_sg_host_removal, _req_sg_host_removal),
+    Stage("sg_virgo2_map", ("sg_nonhost",), ("sg_virgo2_out",),
+          _run_sg_virgo2_map, _req_sg_virgo2_map),
+    Stage("sg_virgo2_compile", ("sg_virgo2_out",), ("sg_compiled",),
+          _run_sg_virgo2_compile, _req_sg_virgo2_compile),
+    Stage("import_function", ("sg_compiled",), ("function",), _run_import_function),
+    # import-existing is registered BEFORE classify so a provided VISTA output wins over
+    # re-running VISTA (both otherwise have a directly-provided input, sg_compiled).
+    Stage("import_mgcst_existing", ("vista_output",), ("mgcst",), _run_import_mgcst_existing),
+    Stage("classify_mgcst", ("sg_compiled",), ("mgcst",),
+          _run_classify_mgcst, _req_classify_mgcst),
+    # --- final assembly: three producers of `mudata`, one shared run fn. Registered most-
+    # complete first so the resolver's "most-complete resolvable" tie-break routes combined runs.
+    Stage("integrate_combined", ("composition", "cst", "function", "mgcst"), ("mudata",),
+          _run_integrate),
     Stage("integrate", ("composition", "cst"), ("mudata",), _run_integrate),
+    Stage("integrate_shotgun", ("function", "mgcst"), ("mudata",), _run_integrate),
 ]
 STAGE_BY_ID = {s.id: s for s in STAGES}
 

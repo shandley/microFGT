@@ -16,15 +16,35 @@ class StageResolutionError(Exception):
     """No registered stage can produce a needed artifact from the provided inputs."""
 
 
+def _resolvable(artifact: str, provided: set[str], stack: frozenset = frozenset()) -> bool:
+    """Can ``artifact`` be produced from ``provided`` (directly, or via some producer whose
+    inputs are all themselves resolvable)? ``stack`` guards against cycles."""
+    if artifact in provided:
+        return True
+    if artifact in stack:
+        return False
+    stack = stack | {artifact}
+    return any(
+        all(_resolvable(i, provided, stack) for i in stage.inputs)
+        for stage in PRODUCERS.get(artifact, [])
+    )
+
+
 def _choose_producer(artifact: str, provided: set[str]) -> Stage | None:
     candidates = PRODUCERS.get(artifact, [])
     if not candidates:
         return None
-    # Prefer a producer whose input is directly provided (e.g. cst_valencia when a VALENCIA
-    # output is supplied; otherwise cst_classify from composition).
+    # 1) Prefer a producer whose input is directly provided (e.g. cst_valencia when a VALENCIA
+    # output is supplied, or import_mgcst_existing when a VISTA output is).
     for stage in candidates:
         if any(i in provided for i in stage.inputs):
             return stage
+    # 2) Otherwise the *most complete* producer whose every input is resolvable from `provided`.
+    # This routes the three `mudata` producers: 16S-only -> integrate, shotgun-only ->
+    # integrate_shotgun, both -> integrate_combined (most inputs wins).
+    resolvable = [s for s in candidates if all(_resolvable(i, provided) for i in s.inputs)]
+    if resolvable:
+        return max(resolvable, key=lambda s: len(s.inputs))
     return candidates[0]
 
 

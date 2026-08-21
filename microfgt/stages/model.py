@@ -29,6 +29,15 @@ ARTIFACT_FILENAMES: dict[str, str | None] = {
     "speciateit_results": "speciateit/MC_order7_results.txt",
     "composition": "composition.h5ad",
     "cst": "cst.csv",
+    # --- metagenomics (shotgun) arm ---
+    "sg_reads": None,                # provided: raw shotgun paired FASTQs
+    "vista_output": None,            # provided: an existing VISTA mgCSTs_*.csv
+    "sg_trimmed": "mg_trimmed",      # dir of fastp-trimmed FASTQs
+    "sg_nonhost": "mg_nonhost",      # dir of host-removed FASTQs
+    "sg_virgo2_out": "mg_virgo2_out",  # dir of per-sample VIRGO2 .out + the compiled matrix
+    "sg_compiled": "mg_virgo2_out/VIRGO2_Compiled.summary.NR.txt",
+    "function": "function.h5ad",     # gene x sample (VIRGO2) modality
+    "mgcst": "mgcst.csv",            # sample-keyed mgCST call
     "mudata": None,                  # the final target (= config 'output' / CLI -o)
 }
 
