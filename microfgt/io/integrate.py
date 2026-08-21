@@ -78,6 +78,22 @@ def attach_cst_annotations(mdata: md.MuData, cst: pd.DataFrame) -> None:
         taxon.uns["cst_sim_columns"] = [str(c) for c in sim_cols]
 
 
+def attach_mgcst_annotations(mdata: md.MuData, mgcst: pd.DataFrame) -> None:
+    """Attach mgCST (shotgun community-type) results to ``mdata``'s global ``.obs``.
+
+    The mgCST columns (``mgCST`` / ``mgCST_score`` and any user columns) go onto the global
+    ``.obs`` by sample id, **beside** — never merged with — the 16S ``CST`` columns (they are not
+    number-comparable). Unlike CST there is no per-centroid similarity block to route to
+    ``.obsm``: VISTA emits only the best-match θ (``max_YC_theta``), not θ against all centroids
+    (see :func:`microfgt.io.import_mgcst`), so this is a plain label attach.
+    """
+    mgcst = mgcst.copy()
+    mgcst.index = mgcst.index.astype(str)
+    aligned = mgcst.reindex(list(mdata.obs_names))
+    for col in mgcst.columns:
+        mdata.obs[col] = aligned[col].to_numpy()
+
+
 def build_mudata(
     composition: ad.AnnData | None = None,
     function: ad.AnnData | None = None,
@@ -85,6 +101,8 @@ def build_mudata(
     obs: pd.DataFrame | None = None,
     *,
     composition_taxon: ad.AnnData | None = None,
+    composition_taxon_shotgun: ad.AnnData | None = None,
+    mgcst: pd.DataFrame | None = None,
     descriptors: bool = True,
 ) -> md.MuData:
     """Build a MuData from the available modalities and attach sample-level annotations.
@@ -107,9 +125,19 @@ def build_mudata(
         Taxon x sample roll-up of ``composition``. If omitted and ``composition`` is
         ASV-grain, it is materialised automatically via :func:`microfgt.io.collapse_to_taxon`
         (the taxon view is always present).
+    composition_taxon_shotgun:
+        Shotgun taxon x sample profile (from :func:`microfgt.io.import_virgo2_taxonomy`),
+        mounted as its own modality parallel to the 16S ``composition_taxon``. Retained
+        faithfully and never merged with the 16S taxonomy.
+    mgcst:
+        Sample-keyed mgCST + score (θ) from :func:`microfgt.io.import_mgcst` or
+        :func:`microfgt.mgcst.classify_mgcst`. Its columns go to ``.obs`` beside — not merged
+        with — 16S ``CST`` (see :func:`attach_mgcst_annotations`).
     descriptors:
         If True (default), compute the intrinsic augment descriptors (dominant taxon,
         % dominant, effective # taxa) from the taxon roll-up and attach them to ``.obs``.
+        When a shotgun taxon modality is present its descriptors are attached too, under a
+        ``shotgun_`` prefix.
 
     Returns
     -------
@@ -126,10 +154,15 @@ def build_mudata(
             composition_taxon = collapse_to_taxon(composition)
     if composition_taxon is not None:
         mods["composition_taxon"] = composition_taxon
+    if composition_taxon_shotgun is not None:
+        mods["composition_taxon_shotgun"] = composition_taxon_shotgun
     if function is not None:
         mods["function"] = function
     if not mods:
-        raise ValueError("build_mudata needs at least one modality (composition/function).")
+        raise ValueError(
+            "build_mudata needs at least one modality "
+            "(composition / composition_taxon_shotgun / function)."
+        )
 
     # Adopt mudata's forthcoming default: don't auto-pull modality obs/var into the
     # global frame. We attach sample annotations explicitly below, so we don't rely on it.
@@ -150,6 +183,11 @@ def build_mudata(
         # Labels -> global .obs; <subCST>_sim vectors -> composition_taxon.obsm['cst_sim'].
         attach_cst_annotations(mdata, cst)
 
+    # mgCST (shotgun) rides beside CST, never merged: labels -> global .obs,
+    # mgcst_*_sim -> composition_taxon_shotgun.obsm['mgcst_sim'].
+    if mgcst is not None:
+        attach_mgcst_annotations(mdata, mgcst)
+
     if obs is not None:
         obs = obs.copy()
         obs.index = obs.index.astype(str)
@@ -163,6 +201,13 @@ def build_mudata(
         desc = describe_composition(composition_taxon).reindex(union)
         for col in desc.columns:
             mdata.obs[col] = desc[col].to_numpy()
+
+    # Shotgun descriptors: the same intrinsic summaries over the shotgun taxon profile,
+    # under a shotgun_ prefix so they sit beside (never collide with) the 16S descriptors.
+    if descriptors and composition_taxon_shotgun is not None:
+        sdesc = describe_composition(composition_taxon_shotgun).reindex(union)
+        for col in sdesc.columns:
+            mdata.obs[f"shotgun_{col}"] = sdesc[col].to_numpy()
 
     recon = Reconciliation(
         n_samples=len(union),

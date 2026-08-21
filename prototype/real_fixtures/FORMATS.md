@@ -34,6 +34,42 @@ Large catalog/study files were trimmed to format samples (provenance below);
 | one `*_test.out` for all samples, **4 cols incl. a `Sample` column**, with header | **one file per sample**, **3 cols, no header, no Sample column** |
 | `_counts.tsv` wide matrix as a deliverable | wide matrix is something *you* build by stacking per-sample `.out` files |
 
+## VIRGO2 — github.com/Ravel-Laboratory/VIRGO2  (audit: ENA/PRJEB34536, 2026-08)
+> Fixtures are slices from **public ENA cohort PRJEB34536** (6 samples). FRESH is
+> controlled human-subjects data → no FRESH files in the repo.
+
+- **`VIRGO2.py compile` writes exactly ONE wide matrix**, `VIRGO2_Compiled.summary.NR.txt`.
+  TSV, header `Gene \t <sample> \t <sample> …`, one row per gene, **float** counts
+  (fixture `virgo2_compiled.summary.NR.slice.txt`, 30 genes × 6 ERR samples). This is the
+  opposite orientation to v1's per-sample files, and unlike v1 it carries **no annotation
+  columns**.
+- **All annotations are separate `AnnotationTables/` files, joined on `Gene` (not `Cluster`).**
+  - taxon: `1.VIRGO2.taxon.txt` = `Cluster \t Gene \t Taxa \t Cat`
+    (fixture `virgo2_taxon_annotation.slice.txt`). Join **on `Gene`**; `Taxa` is the label.
+  - functional (KEGG shown): `Gene \t KEGG \t KEGG_Pathway \t KEGG_Module \t …`
+    (fixture `virgo2_kegg_annotation.slice.txt`). Also EC / PFAM / eggNog / CAZy / AMR / phage /
+    geneProduct / geneLength / VOGkey. **Partial coverage is normal** — the KEGG slice annotates
+    20/30 genes → the join must tolerate missing (→ NaN / `Unannotated`).
+- **Shotgun taxon composition is DERIVED, not emitted.** There is no `VIRGO2.py taxonomy` output
+  file; microFGT builds taxon×sample itself by joining the gene matrix → taxon table and summing
+  per `Taxa` (`import_virgo2` → `collapse_virgo2_to_taxon`), mirroring the 16S
+  `import_speciateit` → `collapse_to_taxon` split. This decouples taxonomy from running VISTA.
+
+## VISTA / mgCST — the shotgun community-type call  (audit: ENA/PRJEB34536, 2026-08)
+- **`run_VISTA.R` writes six files**: `mgCSTs_*.csv`, `norm_counts_mgSs_mgCST_*.csv`,
+  `norm_counts_taxa_*.csv`, `norm_counts_genes_*.csv`, `relabund_w_mgCSTs_*.csv`,
+  `mgCST_heatmap_*.pdf`.
+- **The authoritative per-sample call is `mgCSTs_*.csv`** (fixture `vista_mgCSTs.csv`):
+  CSV, first (unnamed) column = sample id, then `mgCST` (label, e.g. `"mgCST 11"`) and
+  `max_YC_theta` (YC-θ of the **best-matching** mgCST). `import_mgcst()` parses this →
+  `mgCST` + `mgCST_score`.
+- **No per-centroid similarities** — VISTA emits only `max_YC_theta` (best match), not θ against
+  all 25 centroids. So (unlike CST's `<subCST>_sim`) there is **no `mgcst_sim` block** to route
+  to `.obsm`; a low θ means "matches no reference type well," surfaced on the sample.
+- **No scalar subtype in the call file.** The finer mgSs level lives in
+  `norm_counts_mgSs_mgCST_*.csv` (fixture `vista_norm_counts_mgSs_mgCST.csv`) as a **feature
+  matrix** (mgSs × sample), not a per-sample label — an mgSs modality is deferred.
+
 ## VALENCIA — github.com/ravel-lab/VALENCIA  (authoritative: `Valencia.py`)
 > **Validated against GENUINE tool output.** Ran `Valencia.py` on the repo's real
 > published composition data (13,231 samples × 212 taxa); resulting `CST` matches
@@ -70,4 +106,6 @@ Large catalog/study files were trimmed to format samples (provenance below);
 ## Provenance (full files, if needed)
 - speciateIT: `test.fasta`, `test_count_table.csv` (repo root)
 - VIRGO: `_test_run/temp_mapping/sub1.out`, `sub2.out`; catalog `1_VIRGO/0.geneLength.txt`, `1_VIRGO/1.taxon.tbl.txt`
+- VIRGO2 (ENA PRJEB34536): `VIRGO2_Compiled.summary.NR.txt`; `AnnotationTables/1.VIRGO2.taxon.txt`, `.../3.VIRGO2.kegg.txt`
+- VISTA (ENA PRJEB34536): `mgCSTs_*.csv`, `norm_counts_mgSs_mgCST_*.csv` (from `run_VISTA.R`)
 - VALENCIA: `Valencia.py`, `README.md`, `Publication_materials/Data_and_metadata/all_samples_taxonomic_composition_data.csv`

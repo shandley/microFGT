@@ -36,6 +36,21 @@ def _genes(samples, genes):
     )
 
 
+def _taxon_shotgun(samples, taxa):
+    """Shotgun taxon x sample profile, as import_virgo2_taxonomy will produce: counts with a
+    'counts' layer so describe_composition can read it."""
+    X = (np.arange(len(samples) * len(taxa), dtype=np.float32) + 1).reshape(
+        len(samples), len(taxa)
+    )
+    adata = ad.AnnData(
+        X=X,
+        obs=pd.DataFrame(index=pd.Index(samples, name="sample")),
+        var=pd.DataFrame(index=pd.Index(taxa, name="taxon")),
+    )
+    adata.layers["counts"] = X.astype(np.int64)
+    return adata
+
+
 def test_build_mudata_materialises_taxon_assay_and_descriptors():
     comp = _asv_composition(
         ["s1", "s2", "s3"],
@@ -106,6 +121,63 @@ def test_cst_sim_columns_routed_to_obsm_not_obs():
     taxon = mdata["composition_taxon"]
     assert taxon.obsm["cst_sim"].shape == (2, 2)
     assert taxon.uns["cst_sim_columns"] == ["I-A_sim", "V_sim"]
+
+
+def test_shotgun_only_object_is_complete_and_self_contained():
+    # The shotgun arm writes a valid object with no 16S present: function + shotgun taxon
+    # modalities, mgCST in .obs, shotgun_-prefixed descriptors, sane reconciliation.
+    func = _genes(["m1", "m2"], ["geneA", "geneB", "geneC"])
+    taxon_sg = _taxon_shotgun(
+        ["m1", "m2"], ["Lactobacillus_crispatus", "Gardnerella_vaginalis"]
+    )
+    mgcst = pd.DataFrame(
+        {"mgCST": ["mgCST 1", "mgCST 12"], "mgCST_score": [0.9, 0.55]},
+        index=pd.Index(["m1", "m2"], name="sample"),
+    )
+
+    mdata = build_mudata(function=func, composition_taxon_shotgun=taxon_sg, mgcst=mgcst)
+
+    assert set(mdata.mod.keys()) == {"function", "composition_taxon_shotgun"}
+    # mgCST labels on the global frame; no 16S CST present.
+    assert list(mdata.obs["mgCST"]) == ["mgCST 1", "mgCST 12"]
+    assert list(mdata.obs["mgCST_score"]) == [0.9, 0.55]
+    assert "CST" not in mdata.obs
+    # Shotgun descriptors present, prefixed so they never collide with 16S descriptors.
+    for col in ("shotgun_dominant_taxon", "shotgun_dominance_pct", "shotgun_effective_taxa"):
+        assert col in mdata.obs
+    assert "dominant_taxon" not in mdata.obs   # unprefixed = 16S only, absent here
+
+
+def test_mgcst_and_cst_coexist_as_separate_obs_columns():
+    # 16S + shotgun both present: CST and mgCST are distinct .obs columns, never merged. CST
+    # still routes its per-centroid sims to the 16S taxon assay; mgCST has no sim block (VISTA
+    # emits only best-match θ), so nothing lands on the shotgun taxon assay's obsm.
+    comp = _asv_composition(
+        ["s1", "s2"], {"ASV1": "Lactobacillus_iners", "ASV2": "Gardnerella_vaginalis"}
+    )
+    taxon_sg = _taxon_shotgun(["s1", "s2"], ["Prevotella_bivia", "Sneathia_amnii"])
+    cst = pd.DataFrame(
+        {"I-A_sim": [0.9, 0.1], "V_sim": [0.1, 0.8],
+         "subCST": ["I-A", "V"], "score": [0.9, 0.8], "CST": ["I", "V"]},
+        index=pd.Index(["s1", "s2"], name="sample"),
+    )
+    mgcst = pd.DataFrame(
+        {"mgCST": ["mgCST 1", "mgCST 23"], "mgCST_score": [0.7, 0.8]},
+        index=pd.Index(["s1", "s2"], name="sample"),
+    )
+
+    mdata = build_mudata(
+        composition=comp, composition_taxon_shotgun=taxon_sg, cst=cst, mgcst=mgcst
+    )
+
+    # Both community-type calls live as separate labels; neither is merged into the other.
+    assert list(mdata.obs["CST"]) == ["I", "V"]
+    assert list(mdata.obs["mgCST"]) == ["mgCST 1", "mgCST 23"]
+    # No sim vectors clutter the sample frame.
+    assert not any(str(c).endswith("_sim") for c in mdata.obs.columns)
+    # cst_sim on the 16S taxon assay; the shotgun taxon assay carries no mgcst_sim.
+    assert mdata["composition_taxon"].obsm["cst_sim"].shape == (2, 2)
+    assert "mgcst_sim" not in mdata["composition_taxon_shotgun"].obsm
 
 
 def test_build_mudata_requires_a_modality():
