@@ -17,7 +17,9 @@ keywords = ["microbiome", "FGT", "vaginal", "VALENCIA", "VIRGO", "speciateIT", "
 # scikit-bio-style tooling) is an OPEN pick deferred to the analysis layer (P4);
 # bare-mudata objects are read natively by either, so there is no lock-in.
 dependencies = [
-    "mudata>=0.2.3",
+    # 0.4 removed `set_options` and makes `pull_on_update=False` the default; build_mudata
+    # relies on that guard, so cap at <0.4 until the 0.4 migration is done deliberately.
+    "mudata>=0.3,<0.4",
     "anndata>=0.9",
     "pandas>=1.5",
     "numpy>=1.23",
