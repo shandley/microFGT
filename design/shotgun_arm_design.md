@@ -47,7 +47,7 @@ produced a **working reference implementation** of each (see "Reference implemen
 | `sg_host_removal` | minimap2 vs GRCh38, keep both-mates-unmapped | trimmed → non-host | FGT is very host-heavy (audit: 18–94% host); host fraction is unpredictable per sample |
 | `sg_virgo2_map` | bowtie2 vs VIRGO2 index, per sample | non-host → per-sample `.out` | **VIRGO2 is single-end**: concatenate R1+R2, map combined (undocumented convention) |
 | `sg_virgo2_compile` | `VIRGO2.py compile` | `.out`s → `VIRGO2_Compiled.summary.NR.txt` | |
-| `import_function` | compiled matrix → `function` modality | matrix → AnnData(gene × sample) | **UPDATE existing `import_virgo` (VIRGO v1) → `import_virgo2`** (v2 output format) |
+| `import_function` | compiled matrix → `function` modality | matrix → AnnData(gene × sample) | **`import_virgo2`** added *alongside* the kept v1 `import_virgo`. Reads the single wide `VIRGO2_Compiled.summary.NR.txt`; annotations are joined from separate `AnnotationTables/` files on `Gene` (see below). |
 | `classify_mgcst` | VISTA random forest + YC-θ | function → mgCST + θ | **NEW method**, mirror `classify_cst(method=)` seam |
 | `integrate` | fold modality into MuData | → `.h5mu` | existing stage; reads `config["function"][...]` |
 
@@ -61,17 +61,28 @@ or not 16S is present**; combination is the reconciliation layer's job, not the 
 
 **Modalities (feature × sample AnnData):**
 - **`function`** — gene × sample (VIRGO2 gene counts). The shotgun-unique payoff 16S can't
-  produce. `.var` carries VIRGO2 gene annotations (taxon, KEGG/EC/CAZy/VOG/AMR/phage);
-  functional roll-ups (pathway × sample) derive from it.
-- **shotgun taxon composition** (e.g. `composition_taxon_shotgun`) — taxon × sample from
-  `VIRGO2.py taxonomy`. A shotgun taxonomic view parallel to 16S's `composition_taxon`.
+  produce. `.var` carries VIRGO2 gene annotations (taxon, KEGG/EC/CAZy/VOG/AMR/phage), each
+  **joined from a separate `AnnotationTables/` file on `Gene`** (the compiled matrix itself has
+  no annotation columns), tolerating genes a table doesn't cover; functional roll-ups
+  (pathway × sample) derive from it.
+- **shotgun taxon composition** (`composition_taxon_shotgun`) — taxon × sample, a shotgun view
+  parallel to 16S's `composition_taxon`. **There is no `VIRGO2.py taxonomy` output**: microFGT
+  *derives* this itself by joining the gene matrix → `AnnotationTables/1.VIRGO2.taxon.txt` on
+  `Gene` and summing per taxon (`import_virgo2` → `collapse_virgo2_to_taxon`), exactly mirroring
+  the 16S `import_speciateit` → `collapse_to_taxon` split. This deliberately decouples taxonomy
+  from running the classifier.
 
-**Global `.obs` (sample-level):** `mgCST`, `mgCST_subtype`, `mgCST_score` (θ) — stored
-**separately** from 16S `CST`; `virgo2_mapping_rate`, `genes_detected`, `host_fraction`
-(reference-fit); `absolute_load` (from the spike, see below); shotgun `dominant_taxon` /
-`effective_taxa` descriptors (parallel to the 16S augment descriptors).
+**Global `.obs` (sample-level):** `mgCST`, `mgCST_score` (θ) — stored **separately** from 16S
+`CST`; `virgo2_mapping_rate`, `genes_detected`, `host_fraction` (reference-fit); `absolute_load`
+(from the spike, see below); shotgun `dominant_taxon` / `effective_taxa` descriptors
+(`shotgun_`-prefixed, parallel to the 16S augment descriptors). **No `mgCST_subtype`**: VISTA's
+call file (`mgCSTs_*.csv`) carries only the mgCST label + best-match `max_YC_theta`. The finer
+mgSs level lives in `norm_counts_mgSs_mgCST_*.csv` as a **feature matrix** (mgSs × sample), not a
+per-sample label — a possible future mgSs modality, not an `.obs` column.
 
-**`.obsm`:** `mgcst_sim` — per-sample θ-to-each-mgCST-centroid vector (mirrors `cst_sim`).
+**`.obsm`:** *(none for mgCST)* — VISTA emits only the best-match θ, not θ against all 25
+centroids, so there is **no `mgcst_sim`** vector (this is where mgCST differs from CST's
+`cst_sim`). A low `mgCST_score` is the reference-fit signal instead.
 
 **`.uns`:** `reference_fit` report; provenance (`virgo2_runs` / `vista_runs`); participates
 in `reconciliation`.
@@ -148,12 +159,20 @@ docs + the optional `fetch-references` should encode:
 
 ## Implementation to-dos (concrete)
 
-1. `import_virgo` (VIRGO **v1**) → **`import_virgo2`** reading `VIRGO2_Compiled.summary.NR.txt`.
-2. Add `classify_mgcst` behind the `classify_cst`-style method seam; store mgCST/θ separately.
-3. Add `sg_qc`, `sg_host_removal`, `sg_virgo2_map`, `sg_virgo2_compile` stages + `req_fn`s.
-4. Reference-fit + spike-derived absolute load as first-class `.obs`/`.uns` outputs.
-5. The Snakemake/Slurm executor should generate the array-job + resource scaling that the
+**Increment 1 — DONE** (object/import core, commit `ad6c314`): `import_virgo2` (+ annotation
+joins) alongside the kept v1 `import_virgo`; `collapse_virgo2_to_taxon` / `import_virgo2_taxonomy`
+(derived shotgun taxon); `import_mgcst` (VISTA `mgCSTs_*.csv`); `build_mudata` generalized
+(`composition_taxon_shotgun` + `mgcst` kwargs, `shotgun_` descriptors); `classify_mgcst` method
+seam (VISTA method still to register). All grounded in public ENA/PRJEB34536 fixtures.
+
+**Remaining:**
+1. Register the VISTA-running `classify_mgcst` method (R orchestration) behind the seam.
+2. Add `sg_qc`, `sg_host_removal`, `sg_virgo2_map`, `sg_virgo2_compile` stages + `req_fn`s, and
+   wire the shotgun modalities into the file-artifact `integrate` stage.
+3. Reference-fit + spike-derived absolute load as first-class `.obs`/`.uns` outputs.
+4. The Snakemake/Slurm executor should generate the array-job + resource scaling that the
    audit did by hand (host removal ~72 G; VIRGO2 map ~32 G; deep samples run hours).
+5. (Optional) an mgSs feature modality from `norm_counts_mgSs_mgCST_*.csv`.
 
 ## Reference implementation (the working audit pipeline)
 
