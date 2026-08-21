@@ -1,14 +1,17 @@
-# Example microFGT workflow config (runnable against the repo fixtures).
-#   microfgt run -c example_config.yaml -o /tmp/microfgt_demo.h5mu
+# Example microFGT config — 16S (amplicon) arm.  Runnable against the repo fixtures:
+#   microfgt run -c example_16s_config.yaml -o /tmp/microfgt_demo.h5mu
+#
+# Copy this file, edit the paths for your data, then:
+#   microfgt check -c my_run.yaml     # verify tools/paths for your entry point
+#   microfgt run   -c my_run.yaml
 #
 # Demonstrates the turnkey path: import composition -> classify CST (centroid) ->
-# run the bought analysis -> one MuData out. (speciateIT results here are the
-# synthetic test fixture, since no genuine MC_order7_results.txt ships — see the
-# README's P3 IOU note; swap in real paths for real data.)
-
+# run the bought analysis -> one MuData out. (speciateIT results here are the synthetic
+# test fixture, since no genuine MC_order7_results.txt ships — see the README's IOU note.)
+#
 # Entry point = whichever inputs you provide. This example enters at existing speciateIT
 # outputs. To run the full ladder from raw reads instead (needs cutadapt + R/dada2 +
-# speciateIT installed — run `microfgt check -c <cfg>` first), use:
+# speciateIT installed), use:
 #
 #   composition:
 #     reads:

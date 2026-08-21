@@ -4,7 +4,7 @@ Config-first (constraint A): one declarative config describes the inputs and the
 microFGT owns all the glue — import each modality, classify CST, run the bought analysis,
 assemble one MuData. The same functions are callable from Python for power users.
 
-Config shape (any subset; see example_config.yaml at the repo root):
+Config shape (any subset; see the example_*_config.yaml files at the repo root):
 
     composition:
       speciateit: {results: MC_order7_results.txt, count_table: counts.csv}

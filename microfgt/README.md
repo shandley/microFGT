@@ -66,8 +66,9 @@ microfgt analyze  -i out.h5mu -o out.h5mu --transform clr --alpha shannon
 
 `microfgt check` is a preflight doctor — it inspects the *resolved* entry point and
 reports missing binaries, R packages, DB paths, and region↔DB mismatches up front,
-with actionable messages, instead of failing deep in a run. A runnable example config
-(against the repo fixtures) is at `example_config.yaml`.
+with actionable messages, instead of failing deep in a run. Copy-and-run example configs,
+one per mode, are at the repo root: `example_16s_config.yaml` (runnable against the repo
+fixtures), `example_metagenomics_config.yaml`, and `example_combined_config.yaml`.
 
 ### Python API (for power users)
 

@@ -46,8 +46,10 @@ microfgt check -c config.yaml                  # preflight: are the needed tools
 microfgt run   -c config.yaml -o out.h5mu      # import → CST → analysis → one .h5mu
 ```
 
-See [`example_config.yaml`](example_config.yaml) for a config runnable against the repo
-fixtures.
+Copy-and-run example configs, one per mode:
+[`example_16s_config.yaml`](example_16s_config.yaml) (runnable against the repo fixtures),
+[`example_metagenomics_config.yaml`](example_metagenomics_config.yaml), and
+[`example_combined_config.yaml`](example_combined_config.yaml).
 
 ## 📖 Full documentation
 
