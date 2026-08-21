@@ -38,3 +38,45 @@ def test_region_db_mismatch_flagged(tmp_path):
     }}
     results = check(cfg)
     assert any("does not match" in r.message for r in results if not r.ok)
+
+
+def test_rpackage_check_uses_the_configured_rscript(tmp_path):
+    # The doctor must verify R packages with the CONFIGURED Rscript, not a bare 'Rscript' —
+    # otherwise it misreports the VISTA layer for anyone whose R is not on PATH. Prove it by
+    # flipping the result via two stub Rscripts (one reports every package present, one absent).
+    present = _make_exe(tmp_path / "Rscript_present", "#!/usr/bin/env bash\nexit 0\n")
+    absent = _make_exe(tmp_path / "Rscript_absent", "#!/usr/bin/env bash\nexit 1\n")
+
+    def randomforestsrc_ok(rscript):
+        cfg = {"metagenomics": {"reads": {"fastq_dir": "raw/"}, "rscript": str(rscript)}}
+        line = next(r for r in check(cfg) if "randomForestSRC" in r.message)
+        return line.ok
+
+    assert randomforestsrc_ok(present) is True     # configured Rscript said "present"
+    assert randomforestsrc_ok(absent) is False      # ...and "absent" — so it IS being consulted
+
+
+def test_virgo2_checksum_guard_catches_version_divergence(tmp_path):
+    import hashlib
+
+    virgo2 = tmp_path / "VIRGO2"; virgo2.mkdir()
+    script = virgo2 / "VIRGO2.py"; script.write_text("print('the zenodo one')\n")
+    good = hashlib.sha256(script.read_bytes()).hexdigest()
+
+    # Match the requirement KIND (2nd token: "OK|MISS <kind> '<name>'"), not a loose substring —
+    # pytest's tmp_path is named after the test, so the VIRGO2.py *path* contains "checksum".
+    def _is_checksum(r):
+        return r.message.split()[1] == "checksum"
+
+    def checksum_ok(sha):
+        cfg = {"metagenomics": {"reads": {"fastq_dir": "raw/"},
+                                "virgo2_dir": str(virgo2), "virgo2_sha256": sha}}
+        return next(r for r in check(cfg) if _is_checksum(r)).ok
+
+    assert checksum_ok(good) is True
+    assert checksum_ok("deadbeef") is False          # divergence -> a visible MISS line
+
+
+def test_no_checksum_check_without_a_pin(tmp_path):
+    cfg = {"metagenomics": {"reads": {"fastq_dir": "raw/"}, "virgo2_dir": str(tmp_path)}}
+    assert not any(r.message.split()[1] == "checksum" for r in check(cfg))   # opt-in only

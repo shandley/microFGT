@@ -46,9 +46,11 @@ ARTIFACT_FILENAMES: dict[str, str | None] = {
 class Requirement:
     """An external prerequisite a stage needs (checked by ``microfgt check``)."""
 
-    kind: str            # "binary" | "rpackage" | "path"
+    kind: str            # "binary" | "rpackage" | "path" | "checksum"
     name: str            # command name, R package name, or filesystem path
     hint: str = ""       # how to satisfy it, shown when missing
+    via: str = ""        # rpackage: the Rscript (configured path) to verify the package with
+    expected: str = ""   # checksum: the expected sha256 of `name`
 
 
 @dataclass

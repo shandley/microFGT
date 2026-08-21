@@ -336,13 +336,15 @@ def _req_primer_trim(cfg):
 def _req_denoise(cfg):
     rscript = cfg.get("composition", {}).get("reads", {}).get("rscript", "Rscript")
     return [Requirement("binary", rscript, "install R"),
-            Requirement("rpackage", "dada2", "install the Bioconductor dada2 package")]
+            Requirement("rpackage", "dada2", "install the Bioconductor dada2 package",
+                        via=rscript)]
 
 
 def _req_import_phyloseq(cfg):
     rscript = cfg.get("composition", {}).get("phyloseq_rscript", "Rscript")
     return [Requirement("binary", rscript, "install R"),
-            Requirement("rpackage", "phyloseq", "install the Bioconductor phyloseq package")]
+            Requirement("rpackage", "phyloseq", "install the Bioconductor phyloseq package",
+                        via=rscript)]
 
 
 def _req_assign(cfg):
@@ -385,6 +387,17 @@ def _req_sg_virgo2_map(cfg):
         reqs.append(Requirement("path", str(d / "VIRGO2.py"), "VIRGO2.py in the VIRGO2 install"))
         reqs.append(Requirement("path", str(d / "Index" / "VIRGO2.1.bt2"),
                                 "the VIRGO2 bowtie2 index (build once with VIRGO2.py install)"))
+        # Version-identity guard: the GitHub and Zenodo VIRGO2.py diverge (GitHub's has an
+        # args.threads crash) and the failure is silent + un-debuggable for a newcomer. Pin the
+        # known-good Zenodo checksum via metagenomics.virgo2_sha256 to make divergence a visible
+        # MISS line rather than a mystery.
+        if mg.get("virgo2_sha256"):
+            reqs.append(Requirement(
+                "checksum", str(d / "VIRGO2.py"),
+                "VIRGO2.py does not match the pinned checksum — use the Zenodo VIRGO2.py "
+                "(DOI 10.5281/zenodo.18703182), not the GitHub one",
+                expected=mg["virgo2_sha256"],
+            ))
     return reqs
 
 
@@ -406,8 +419,9 @@ def _req_classify_mgcst(cfg):
     from pathlib import Path
 
     mg = cfg.get("metagenomics", {})
-    reqs = [Requirement("binary", mg.get("rscript", "Rscript"), "install R (VISTA classifier)")]
-    reqs += [Requirement("rpackage", pkg, f"install the R package {pkg} (VISTA)")
+    rscript = mg.get("rscript", "Rscript")
+    reqs = [Requirement("binary", rscript, "install R (VISTA classifier)")]
+    reqs += [Requirement("rpackage", pkg, f"install the R package {pkg} (VISTA)", via=rscript)
              for pkg in _VISTA_RPACKAGES]
     if mg.get("vista_repo"):
         d = Path(mg["vista_repo"])

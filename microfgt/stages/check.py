@@ -36,13 +36,30 @@ def _r_has_package(pkg: str, rscript: str = "Rscript") -> bool:
         return False
 
 
+def _sha256(path: str) -> str | None:
+    import hashlib
+
+    try:
+        h = hashlib.sha256()
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except OSError:
+        return None
+
+
 def _verify(req) -> CheckResult:
     if req.kind == "binary":
         ok = shutil.which(req.name) is not None
     elif req.kind == "path":
         ok = Path(req.name).exists()
     elif req.kind == "rpackage":
-        ok = _r_has_package(req.name)
+        # Verify with the CONFIGURED Rscript, not a bare 'Rscript' — otherwise the doctor
+        # misreports the most fragile layer (R/VISTA) for anyone whose R is not on PATH.
+        ok = _r_has_package(req.name, req.via or "Rscript")
+    elif req.kind == "checksum":
+        ok = _sha256(req.name) == req.expected
     else:  # pragma: no cover
         ok = False
     label = f"{req.kind} {req.name!r}"

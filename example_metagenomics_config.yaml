@@ -21,6 +21,8 @@ metagenomics:
   virgo2_dir: /path/to/VIRGO2           # has VIRGO2.py, Index/, AnnotationTables/
   vista_repo: /path/to/VISTA            # contains VISTA_data/
   threads: 8
+  # virgo2_sha256: <hex>   # optional: pin the Zenodo VIRGO2.py checksum so `check` catches the
+  #                        # (silent, un-debuggable) GitHub-vs-Zenodo version divergence
 
 mgcst:
   # Leave this out to RUN VISTA (the default). Set it to import an existing VISTA call instead:
