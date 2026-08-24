@@ -124,12 +124,18 @@ def main():
 
 def _render_home(mdata, catalog, path):
     """Overview tab: cohort at a glance + the standard FGT plots."""
-    obs = mdata.obs
+    # Resolve annotations through the same prefix-stripped, merged view the analysis layer
+    # uses. Metadata that rides on a modality's obs is stored by MuData under a "<modality>:"
+    # prefix, so reading raw mdata.obs["PID"]/["read_count"] misses it and falls back to "—".
+    from microfgt.analysis._frame import merged_obs
+
+    obs = merged_obs(mdata)
     n_taxa = mdata["composition_taxon"].n_vars if "composition_taxon" in mdata.mod else mdata.n_vars
     cols = st.columns(5)
     cols[0].metric("Samples", f"{mdata.n_obs:,}")
     cols[1].metric("Taxa", f"{n_taxa:,}")
-    subj = obs["PID"].nunique() if "PID" in obs.columns else None
+    subj_col = next((c for c in ("PID", "subject", "subject_id", "Subject_number") if c in obs.columns), None)
+    subj = obs[subj_col].nunique() if subj_col else None
     cols[2].metric("Subjects", f"{subj:,}" if subj else "—")
     cols[3].metric("CSTs", obs["CST"].nunique() if "CST" in obs.columns else "—")
     depth = obs["read_count"].median() if "read_count" in obs.columns else None
