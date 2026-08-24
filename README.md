@@ -24,12 +24,13 @@ install, a turnkey CLI, and the tool owns all the glue) and **scientific soundne
 (every method validated against a ground-truth reference before it's trusted —
 compositional correctness, reproducible runs, honest sample reconciliation).
 
-It models the 16S workflow as one stage graph
-(`primer-trim → denoise → assign taxonomy → import → classify CST → integrate`), and the
-**entry point is just whichever inputs your config provides**: paired FASTQs run the full
-chain, an ASV table enters at taxonomy assignment, existing tool outputs enter at import.
-The output is one `.h5mu` (MuData) holding sample-keyed assays plus CST and analysis
-results.
+It models two arms — amplicon **16S**
+(`primer-trim → denoise → assign taxonomy → import → classify CST → integrate`) and shotgun
+**metagenomics** (`fastp → host removal → VIRGO2 → VISTA/mgCST → integrate`) — as stage
+graphs in one registry, and the **entry point is just whichever inputs your config
+provides**: paired FASTQs run the full chain, an ASV table (16S) or a compiled VIRGO2 matrix
+(shotgun) enters partway, existing tool outputs enter at import. The output is one `.h5mu`
+(MuData) holding sample-keyed assays plus CST/mgCST and analysis results.
 
 ## Install
 
