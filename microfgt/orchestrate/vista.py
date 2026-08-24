@@ -81,13 +81,17 @@ def _write_compiled_from_function(function, dest) -> Path:
 
 def classify_mgcst_vista(
     function=None, *, vista_repo, outdir, compiled=None,
-    rscript: str = "Rscript", timeout: float | None = None,
+    rscript: str = "Rscript", timeout: float | None = None, return_record: bool = False,
 ):
     """The VISTA method behind :func:`microfgt.mgcst.classify_mgcst`.
 
     Runs VISTA and parses the call. Pass ``compiled=`` (the VIRGO2 matrix path, the stage path)
     or a ``function`` AnnData (materialized to a compiled matrix first, the Python-API path).
     Returns the sample-keyed mgCST frame from :func:`microfgt.io.import_mgcst`.
+
+    ``return_record=True`` returns ``(frame, RunRecord)`` instead, so the stage layer can record
+    the VISTA invocation as provenance (like the other shotgun tool stages). The seam keeps the
+    bare-frame default so :func:`microfgt.mgcst.classify_mgcst` stays DataFrame-returning.
     """
     from microfgt.io import import_mgcst
 
@@ -102,5 +106,6 @@ def classify_mgcst_vista(
         compiled = _write_compiled_from_function(
             function, outdir / "VIRGO2_Compiled.summary.NR.txt"
         )
-    mgcsts_csv, _ = run_vista(compiled, vista_repo, outdir, rscript=rscript, timeout=timeout)
-    return import_mgcst(mgcsts_csv)
+    mgcsts_csv, record = run_vista(compiled, vista_repo, outdir, rscript=rscript, timeout=timeout)
+    df = import_mgcst(mgcsts_csv)
+    return (df, record) if return_record else df

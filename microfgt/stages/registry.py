@@ -314,11 +314,13 @@ def _run_import_function(ctx: StageContext) -> None:
 def _run_classify_mgcst(ctx: StageContext) -> None:
     from microfgt.orchestrate.vista import classify_mgcst_vista
 
-    df = classify_mgcst_vista(
+    df, record = classify_mgcst_vista(
         compiled=ctx.path("sg_compiled"), vista_repo=_mg_require(ctx, "vista_repo"),
         outdir=ctx.workdir / "vista", rscript=_mg(ctx).get("rscript", "Rscript"),
+        return_record=True,
     )
     df.to_csv(ctx.path("mgcst"))
+    _write_provenance(ctx, "classify_mgcst", [record])
 
 
 def _run_import_mgcst_existing(ctx: StageContext) -> None:

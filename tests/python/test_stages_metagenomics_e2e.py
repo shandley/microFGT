@@ -145,7 +145,11 @@ def test_reads_to_h5mu_via_stub_tools(tmp_path):
     import json
 
     runs = json.loads(m.uns["metagenomics_runs"])
-    assert {"sg_qc", "sg_host_removal", "sg_virgo2_map", "sg_virgo2_compile"} <= set(runs)
+    assert {
+        "sg_qc", "sg_host_removal", "sg_virgo2_map", "sg_virgo2_compile", "classify_mgcst"
+    } <= set(runs)
+    # VISTA is a real tool invocation, so its run is recorded like the others.
+    assert runs["classify_mgcst"][0]["tool"] == "VISTA"
 
 
 def test_combined_16s_and_metagenomics_from_existing_outputs(tmp_path, real_fixtures, test_data):
