@@ -30,10 +30,9 @@ class SnakemakeExecutor:
     def generate(self, stages, config_path, workdir, output=None) -> str:
         # config must be on disk so each `_run-stage` shell call can re-read it.
         from microfgt.stages.registry import provided_artifacts
+        from microfgt.config import load_config
 
-        import yaml
-
-        config = yaml.safe_load(Path(config_path).read_text()) or {}
+        config = load_config(config_path)
         paths = artifact_paths(workdir, config, output)
         provided = set(provided_artifacts(config))
 

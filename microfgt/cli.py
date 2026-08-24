@@ -79,10 +79,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _load_config(path: str) -> dict:
-    import yaml
+    from microfgt.config import load_config
 
-    with open(path) as fh:
-        return yaml.safe_load(fh) or {}
+    return load_config(path)
 
 
 def _attach_cst(mdata, cst_df) -> None:

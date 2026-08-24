@@ -118,7 +118,7 @@ its wiring exercised end-to-end but has never run against the real tool's output
 | Shotgun running front-end (fastp, minimap2 host removal, VIRGO2 map/compile, VISTA) | ⚠️ Validated via **stubs** end-to-end (reads → `.h5mu`) — plumbing, not biology. |
 | Snakemake/Slurm executor | ⚠️ Snakefile is generated and asserted, but **never yet run on a cluster**. |
 
-Run the suite (55 tests; the CST gate needs VALENCIA's ~8 MB published dataset — stage it
+Run the suite (the CST gate needs VALENCIA's ~8 MB published dataset — stage it
 with `python validation/fetch_valencia_published_data.py`, else it skips):
 
 ```bash

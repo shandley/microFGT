@@ -24,7 +24,7 @@ REGION_DEFAULTS = {
 # --- config -> provided artifacts (the entry point is just which inputs are present) -------
 def provided_artifacts(config: dict) -> dict[str, str]:
     provided: dict[str, str] = {}
-    comp = config.get("composition", {})
+    comp = config.get("composition") or {}
     if "reads" in comp and comp["reads"].get("fastq_dir"):
         provided["fastq_dir"] = comp["reads"]["fastq_dir"]
     if comp.get("asv_table"):
@@ -33,12 +33,12 @@ def provided_artifacts(config: dict) -> dict[str, str]:
         provided["asv_seqs"] = comp["asv_seqs"]
     if comp.get("composition_h5ad"):
         provided["composition"] = comp["composition_h5ad"]
-    sit = comp.get("speciateit", {})
+    sit = comp.get("speciateit") or {}
     if sit.get("results"):
         provided["speciateit_results"] = sit["results"]
     if sit.get("count_table"):
         provided["asv_table"] = sit["count_table"]
-    cst_cfg = config.get("cst", {})
+    cst_cfg = config.get("cst") or {}
     if comp.get("phyloseq"):
         provided["phyloseq_rds"] = comp["phyloseq"]
         # A phyloseq entry supplies its own CST by default; an explicit cst source
@@ -50,13 +50,13 @@ def provided_artifacts(config: dict) -> dict[str, str]:
         provided["valencia_output"] = cst_cfg["valencia"]
 
     # --- metagenomics (shotgun) arm entry points ---
-    mg = config.get("metagenomics", {})
-    reads = mg.get("reads", {})
+    mg = config.get("metagenomics") or {}
+    reads = mg.get("reads") or {}
     if reads.get("fastq_dir"):
         provided["sg_reads"] = reads["fastq_dir"]
     if mg.get("compiled"):
         provided["sg_compiled"] = mg["compiled"]
-    if config.get("mgcst", {}).get("vista_output"):
+    if (config.get("mgcst") or {}).get("vista_output"):
         provided["vista_output"] = config["mgcst"]["vista_output"]
     return provided
 
@@ -65,8 +65,8 @@ def provided_artifacts(config: dict) -> dict[str, str]:
 def _run_primer_trim(ctx: StageContext) -> None:
     from microfgt.orchestrate.cutadapt import run_cutadapt
 
-    reads = ctx.config.get("composition", {}).get("reads", {})
-    primers = reads.get("primers", {})
+    reads = (ctx.config.get("composition") or {}).get("reads") or {}
+    primers = reads.get("primers") or {}
     run_cutadapt(
         ctx.path("fastq_dir"), ctx.path("trimmed_reads"),
         fwd_primer=primers.get("fwd"), rev_primer=primers.get("rev"),
@@ -77,9 +77,9 @@ def _run_primer_trim(ctx: StageContext) -> None:
 def _run_denoise(ctx: StageContext) -> None:
     from microfgt.orchestrate.dada2 import run_dada2
 
-    reads = ctx.config.get("composition", {}).get("reads", {})
+    reads = (ctx.config.get("composition") or {}).get("reads") or {}
     defaults = REGION_DEFAULTS.get(reads.get("region"), {})
-    d = reads.get("dada2", {})
+    d = reads.get("dada2") or {}
     run_dada2(
         ctx.path("trimmed_reads"), ctx.path("asv_table"), ctx.path("asv_seqs"),
         ctx.path("quality_profile"),
@@ -92,7 +92,7 @@ def _run_denoise(ctx: StageContext) -> None:
 def _run_assign(ctx: StageContext) -> None:
     from microfgt.orchestrate import run_speciateit
 
-    sit = ctx.config.get("composition", {}).get("speciateit", {})
+    sit = (ctx.config.get("composition") or {}).get("speciateit") or {}
     run_speciateit(
         fasta=ctx.path("asv_seqs"), db=sit["db"],
         outdir=ctx.path("speciateit_results").parent,
@@ -116,7 +116,7 @@ def _run_import_composition(ctx: StageContext) -> None:
 def _run_import_phyloseq(ctx: StageContext) -> None:
     from microfgt.io import import_phyloseq
 
-    rscript = ctx.config.get("composition", {}).get("phyloseq_rscript", "Rscript")
+    rscript = (ctx.config.get("composition") or {}).get("phyloseq_rscript", "Rscript")
     adata = import_phyloseq(ctx.path("phyloseq_rds"), rscript=rscript)
     adata.write(ctx.path("composition"))
 
@@ -147,7 +147,7 @@ def _run_cst_classify(ctx: StageContext) -> None:
     adata = ad.read_h5ad(ctx.path("composition"))
     # CST reads the taxon roll-up; collapse ASV-grain composition first.
     taxon = collapse_to_taxon(adata) if "classification" in adata.var else adata
-    method = ctx.config.get("cst", {}).get("method", "centroid")
+    method = (ctx.config.get("cst") or {}).get("method", "centroid")
     classify_cst(taxon, method=method).to_csv(ctx.path("cst"))
 
 
@@ -185,7 +185,7 @@ def _run_integrate(ctx: StageContext) -> None:
         if "taxon" in function.var:                      # derive the shotgun taxon modality
             taxon_sg = collapse_virgo2_to_taxon(function)
     else:                                                # backward-compat: v1 function from config
-        fcfg = ctx.config.get("function", {})
+        fcfg = ctx.config.get("function") or {}
         if "virgo" in fcfg:
             function = import_virgo(fcfg["virgo"]["dir"])
 
@@ -208,7 +208,7 @@ def _run_integrate(ctx: StageContext) -> None:
 
 # --- metagenomics (shotgun) stage run functions (reuse the orchestrators) ------------------
 def _mg(ctx: StageContext) -> dict:
-    return ctx.config.get("metagenomics", {})
+    return ctx.config.get("metagenomics") or {}
 
 
 def _mg_require(ctx: StageContext, key: str):
@@ -329,26 +329,26 @@ def _run_import_mgcst_existing(ctx: StageContext) -> None:
 
 # --- requirements (entry-dependent; checked by the doctor) ---------------------------------
 def _req_primer_trim(cfg):
-    return [Requirement("binary", cfg.get("composition", {}).get("reads", {}).get("cutadapt", "cutadapt"),
+    return [Requirement("binary", ((cfg.get("composition") or {}).get("reads") or {}).get("cutadapt", "cutadapt"),
                         "install cutadapt and put it on PATH")]
 
 
 def _req_denoise(cfg):
-    rscript = cfg.get("composition", {}).get("reads", {}).get("rscript", "Rscript")
+    rscript = ((cfg.get("composition") or {}).get("reads") or {}).get("rscript", "Rscript")
     return [Requirement("binary", rscript, "install R"),
             Requirement("rpackage", "dada2", "install the Bioconductor dada2 package",
                         via=rscript)]
 
 
 def _req_import_phyloseq(cfg):
-    rscript = cfg.get("composition", {}).get("phyloseq_rscript", "Rscript")
+    rscript = (cfg.get("composition") or {}).get("phyloseq_rscript", "Rscript")
     return [Requirement("binary", rscript, "install R"),
             Requirement("rpackage", "phyloseq", "install the Bioconductor phyloseq package",
                         via=rscript)]
 
 
 def _req_assign(cfg):
-    sit = cfg.get("composition", {}).get("speciateit", {})
+    sit = (cfg.get("composition") or {}).get("speciateit") or {}
     reqs = [Requirement("binary", sit.get("classify", "classify"),
                         "install speciateIT (the classify binary)")]
     if sit.get("db"):
@@ -358,12 +358,12 @@ def _req_assign(cfg):
 
 # --- metagenomics req_fns (the audit's walls -> actionable check errors; per RECIPE.md) ----
 def _req_sg_qc(cfg):
-    mg = cfg.get("metagenomics", {})
+    mg = cfg.get("metagenomics") or {}
     return [Requirement("binary", mg.get("fastp", "fastp"), "install fastp (QC/trim)")]
 
 
 def _req_sg_host_removal(cfg):
-    mg = cfg.get("metagenomics", {})
+    mg = cfg.get("metagenomics") or {}
     reqs = [
         Requirement("binary", mg.get("minimap2", "minimap2"), "install minimap2 (host removal)"),
         Requirement("binary", mg.get("samtools", "samtools"), "install samtools (host removal)"),
@@ -377,7 +377,7 @@ def _req_sg_host_removal(cfg):
 def _req_sg_virgo2_map(cfg):
     from pathlib import Path
 
-    mg = cfg.get("metagenomics", {})
+    mg = cfg.get("metagenomics") or {}
     reqs = [
         Requirement("binary", mg.get("python", "python3"), "python3 to run VIRGO2.py"),
         Requirement("binary", mg.get("bowtie2", "bowtie2"), "install bowtie2 (VIRGO2 mapping)"),
@@ -404,7 +404,7 @@ def _req_sg_virgo2_map(cfg):
 def _req_sg_virgo2_compile(cfg):
     from pathlib import Path
 
-    mg = cfg.get("metagenomics", {})
+    mg = cfg.get("metagenomics") or {}
     reqs = [Requirement("binary", mg.get("python", "python3"), "python3 to run VIRGO2.py")]
     if mg.get("virgo2_dir"):
         reqs.append(Requirement("path", str(Path(mg["virgo2_dir"]) / "VIRGO2.py"),
@@ -418,7 +418,7 @@ _VISTA_RPACKAGES = ("randomForestSRC", "pheatmap", "dplyr", "data.table", "R.uti
 def _req_classify_mgcst(cfg):
     from pathlib import Path
 
-    mg = cfg.get("metagenomics", {})
+    mg = cfg.get("metagenomics") or {}
     rscript = mg.get("rscript", "Rscript")
     reqs = [Requirement("binary", rscript, "install R (VISTA classifier)")]
     reqs += [Requirement("rpackage", pkg, f"install the R package {pkg} (VISTA)", via=rscript)

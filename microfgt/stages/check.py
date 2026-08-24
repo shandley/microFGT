@@ -69,8 +69,8 @@ def _verify(req) -> CheckResult:
 def _region_db_consistency(config, stage_ids) -> list[CheckResult]:
     if "assign" not in stage_ids:
         return []
-    reads = config.get("composition", {}).get("reads", {})
-    sit = config.get("composition", {}).get("speciateit", {})
+    reads = (config.get("composition") or {}).get("reads") or {}
+    sit = (config.get("composition") or {}).get("speciateit") or {}
     region, db = reads.get("region"), sit.get("db")
     if not region or not db:
         return []
