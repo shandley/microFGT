@@ -132,9 +132,10 @@ Two gaps remain, both requiring a real run rather than more code:
 1. **speciateIT real-output** — `import_speciateit` has never parsed genuine classifier
    output. Discharged by one real `MC_order7_results.txt` (the importer check needs only
    the small output file; *producing* it needs the ~2.6 GB models).
-2. **HTCF ladder run** — both running front-ends (16S: cutadapt + DADA2 + speciateIT;
+2. **Real tool run** — both running front-ends (16S: cutadapt + DADA2 + speciateIT;
    shotgun: fastp + minimap2 + VIRGO2 + VISTA) and the cluster path are proven only with
-   stubs. Discharged by real runs on WashU's HTCF on small sets; the 16S run also discharges #1.
+   stubs. Discharged by one real run of each front-end on a small set; the 16S run also
+   discharges #1.
 
 ## External tools & reference data
 
@@ -252,8 +253,8 @@ Enter partway in by giving `metagenomics.compiled` (a `VIRGO2_Compiled` matrix) 
 - **P5 — Shotgun metagenomics arm** ✅ VIRGO2 + VISTA/mgCST importers (validated on real
   ENA/PRJEB34536 fixtures) and the running front-end (fastp → minimap2 host removal → VIRGO2
   map/compile → VISTA) added as stages in the *same* registry and executors, sharing the
-  multi-entry resolver. Real-tool correctness is part of the HTCF IOU (stub-validated end to
-  end today).
+  multi-entry resolver. Real-tool correctness is part of the real-run IOU (stub-validated end
+  to end today).
 - **Augment descriptors (not rival CST)** ✅ CST is one blessed method (VALENCIA); the
   diffuse/continuum structure it flattens is read out by *augmenting* the label with
   per-sample descriptors — dominant taxon, % dominant, effective # taxa — attached alongside CST.
