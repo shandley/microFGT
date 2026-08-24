@@ -144,7 +144,7 @@ def test_reads_to_h5mu_via_stub_tools(tmp_path):
     # Provenance for every tool stage folded into uns (stored as a JSON string).
     import json
 
-    runs = json.loads(m.uns["metagenomics_runs"])
+    runs = json.loads(m.uns["tool_runs"])
     assert {
         "sg_qc", "sg_host_removal", "sg_virgo2_map", "sg_virgo2_compile", "classify_mgcst"
     } <= set(runs)

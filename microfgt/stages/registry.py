@@ -67,11 +67,12 @@ def _run_primer_trim(ctx: StageContext) -> None:
 
     reads = (ctx.config.get("composition") or {}).get("reads") or {}
     primers = reads.get("primers") or {}
-    run_cutadapt(
+    records = run_cutadapt(
         ctx.path("fastq_dir"), ctx.path("trimmed_reads"),
         fwd_primer=primers.get("fwd"), rev_primer=primers.get("rev"),
         executable=reads.get("cutadapt", "cutadapt"),
     )
+    _write_provenance(ctx, "primer_trim", records)
 
 
 def _run_denoise(ctx: StageContext) -> None:
@@ -80,25 +81,27 @@ def _run_denoise(ctx: StageContext) -> None:
     reads = (ctx.config.get("composition") or {}).get("reads") or {}
     defaults = REGION_DEFAULTS.get(reads.get("region"), {})
     d = reads.get("dada2") or {}
-    run_dada2(
+    record = run_dada2(
         ctx.path("trimmed_reads"), ctx.path("asv_table"), ctx.path("asv_seqs"),
         ctx.path("quality_profile"),
         trunc_len=d.get("trunc_len", defaults.get("trunc_len")),
         trim_left=d.get("trim_left", defaults.get("trim_left")),
         rscript=reads.get("rscript", "Rscript"),
     )
+    _write_provenance(ctx, "denoise", [record])
 
 
 def _run_assign(ctx: StageContext) -> None:
     from microfgt.orchestrate import run_speciateit
 
     sit = (ctx.config.get("composition") or {}).get("speciateit") or {}
-    run_speciateit(
+    _, record = run_speciateit(
         fasta=ctx.path("asv_seqs"), db=sit["db"],
         outdir=ctx.path("speciateit_results").parent,
         executable=sit.get("classify", "classify"),
         skip_err_thld=sit.get("skip_err_thld", False),
     )
+    _write_provenance(ctx, "assign", [record])
 
 
 def _run_import_composition(ctx: StageContext) -> None:
@@ -200,9 +203,11 @@ def _run_integrate(ctx: StageContext) -> None:
     if prov:
         import json
 
-        # Store as a JSON string: the nested RunRecords (argv lists, param dicts) are not
-        # h5-serializable as a raw nested dict, but a scalar string round-trips cleanly.
-        mdata.uns["metagenomics_runs"] = json.dumps(prov)
+        # One arm-agnostic key for every tool invocation (16S + shotgun), keyed by stage id;
+        # each RunRecord carries its own `tool`. Store as a JSON string: the nested RunRecords
+        # (argv lists, param dicts) are not h5-serializable as a raw nested dict, but a scalar
+        # string round-trips cleanly.
+        mdata.uns["tool_runs"] = json.dumps(prov)
     mdata.write(ctx.path("mudata"))
 
 

@@ -115,6 +115,13 @@ def test_full_fastq_to_h5mu_ladder(tmp_path):
     assert "dominant_taxon" in m.obs.columns                 # augment descriptors present
     assert "clr" in m["composition"].layers
     assert "alpha_shannon" in m["composition"].obs
+    # Every 16S tool stage recorded its run under the arm-agnostic provenance key.
+    import json
+
+    runs = json.loads(m.uns["tool_runs"])
+    assert {"primer_trim", "denoise", "assign"} <= set(runs)
+    assert runs["primer_trim"][0]["tool"] == "cutadapt"     # one record per sample
+    assert len(runs["primer_trim"]) == 2
 
 
 def test_run_emits_snakefile_in_snakemake_mode(tmp_path):
