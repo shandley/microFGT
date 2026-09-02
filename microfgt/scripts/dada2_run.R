@@ -11,6 +11,7 @@
 #       [--trunc-len F,R] [--trim-left F,R]
 
 suppressPackageStartupMessages(library(dada2))
+suppressPackageStartupMessages(library(ShortRead))  # qa() lives here; dada2 imports but does not attach it
 
 args <- commandArgs(trailingOnly = TRUE)
 getarg <- function(flag, default = NA) {
@@ -29,9 +30,17 @@ qprofile_out <- getarg("--quality-profile")
 truncLen <- as_pair(getarg("--trunc-len"), c(0, 0))     # 0 = no truncation (default)
 trimLeft <- as_pair(getarg("--trim-left"), c(0, 0))
 
+# Accept Illumina _R1/_R2; fall back to ENA/SRA _1/_2 (marker just before the extension),
+# mirroring the Python discover_pairs so both front-ends pair reads identically.
 fnFs <- sort(list.files(input_dir, pattern = "_R1.*fastq", full.names = TRUE))
 fnRs <- sort(list.files(input_dir, pattern = "_R2.*fastq", full.names = TRUE))
-sample.names <- sapply(strsplit(basename(fnFs), "_R1"), `[`, 1)
+if (length(fnFs) > 0) {
+  sample.names <- sapply(strsplit(basename(fnFs), "_R1"), `[`, 1)
+} else {
+  fnFs <- sort(list.files(input_dir, pattern = "_1\\.(fastq|fq)(\\.gz)?$", full.names = TRUE))
+  fnRs <- sort(list.files(input_dir, pattern = "_2\\.(fastq|fq)(\\.gz)?$", full.names = TRUE))
+  sample.names <- sub("_1\\.(fastq|fq)(\\.gz)?$", "", basename(fnFs))
+}
 
 # Per-position quality profile (so truncation can be set from data, not guessed).
 qp <- do.call(rbind, lapply(fnFs, function(f) {
@@ -49,6 +58,18 @@ errF <- learnErrors(filtFs, multithread = TRUE)
 errR <- learnErrors(filtRs, multithread = TRUE)
 mergers <- mergePairs(dada(filtFs, err = errF, multithread = TRUE), filtFs,
                       dada(filtRs, err = errR, multithread = TRUE), filtRs)
+
+# Key the merged results by CLEAN sample id BEFORE building the sequence table, so the table's
+# row names are sample ids (e.g. 'M8092') — not filt-file basenames — and the ASV table joins
+# to other assays by SAMPLE, not filename (needed for co-assayed 16S+shotgun runs). Doing it
+# here (rather than re-keying the table afterwards) also fixes the single-sample case: with one
+# sample, mergePairs returns a bare, name-less data.frame, which otherwise makes a row-name-less
+# 1-row table and crashes the CSV write below.
+if (is.data.frame(mergers)) {
+  mergers <- setNames(list(mergers), sample.names)   # n = 1: wrap as a one-element named list
+} else {
+  names(mergers) <- sample.names                     # n > 1: re-key the list to sample ids
+}
 seqtab <- removeBimeraDenovo(makeSequenceTable(mergers),
                              method = "consensus", multithread = TRUE)
 
