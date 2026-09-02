@@ -80,3 +80,17 @@ def test_virgo2_checksum_guard_catches_version_divergence(tmp_path):
 def test_no_checksum_check_without_a_pin(tmp_path):
     cfg = {"metagenomics": {"reads": {"fastq_dir": "raw/"}, "virgo2_dir": str(tmp_path)}}
     assert not any(r.message.split()[1] == "checksum" for r in check(cfg))   # opt-in only
+
+
+def test_region_defaults_use_canonical_model_names_with_v4_alias():
+    from microfgt.stages.registry import region_defaults
+
+    # Canonical vSpeciateDB region names all resolve (incl. V4V4 and V1V9, previously missing).
+    assert region_defaults("V4V4")["trunc_len"] == [230, 180]
+    assert region_defaults("V1V3") == {"trunc_len": [0, 0], "trim_left": [0, 0]}
+    assert region_defaults("V1V9") == {"trunc_len": [0, 0], "trim_left": [0, 0]}
+    # "V4" (the colloquial name) aliases to V4V4 so users get the defaults either way.
+    assert region_defaults("V4") == region_defaults("V4V4")
+    # Unknown / missing region -> no defaults, but never errors.
+    assert region_defaults("bogus") == {}
+    assert region_defaults(None) == {}

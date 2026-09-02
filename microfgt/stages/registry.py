@@ -11,14 +11,26 @@ from __future__ import annotations
 
 from microfgt.stages.model import Requirement, Stage, StageContext, artifact_paths
 
-# Region-aware DADA2 defaults, keyed to speciateIT's own model regions. Starting points
-# only — truncation genuinely depends on run quality, so these are overridable and the
-# quality profile is emitted to inform overrides.
+# Region-aware DADA2 defaults, keyed to the vSpeciateDB model regions (the model dirs are named
+# vSpeciateIT_<REGION>: V1V3 / V1V9 / V3V4 / V4V4). Starting points only — truncation genuinely
+# depends on run quality, so these are overridable and the quality profile is emitted to inform
+# overrides. (trim_left trims primers when DADA2 does it; leave it 0 if cutadapt already has.)
 REGION_DEFAULTS = {
     "V1V3": {"trunc_len": [0, 0], "trim_left": [0, 0]},
     "V3V4": {"trunc_len": [280, 230], "trim_left": [17, 21]},
-    "V4": {"trunc_len": [230, 180], "trim_left": [19, 20]},
+    "V4V4": {"trunc_len": [230, 180], "trim_left": [19, 20]},   # 515F/806R
+    # V1V9 is full-length 16S (~1.5 kb): typically long-read (PacBio) and entered at an ASV
+    # table, not Illumina paired DADA2 — so no useful paired-truncation default.
+    "V1V9": {"trunc_len": [0, 0], "trim_left": [0, 0]},
 }
+# Colloquial region name -> the vSpeciateDB dir name, so a config may say the common "V4" or the
+# exact model-region "V4V4" and get the same defaults.
+_REGION_ALIASES = {"V4": "V4V4"}
+
+
+def region_defaults(region: str | None) -> dict:
+    """DADA2 defaults for a region, accepting colloquial aliases (e.g. ``"V4"`` -> ``"V4V4"``)."""
+    return REGION_DEFAULTS.get(_REGION_ALIASES.get(region, region), {})
 
 
 # --- config -> provided artifacts (the entry point is just which inputs are present) -------
@@ -79,7 +91,7 @@ def _run_denoise(ctx: StageContext) -> None:
     from microfgt.orchestrate.dada2 import run_dada2
 
     reads = (ctx.config.get("composition") or {}).get("reads") or {}
-    defaults = REGION_DEFAULTS.get(reads.get("region"), {})
+    defaults = region_defaults(reads.get("region"))
     d = reads.get("dada2") or {}
     record = run_dada2(
         ctx.path("trimmed_reads"), ctx.path("asv_table"), ctx.path("asv_seqs"),

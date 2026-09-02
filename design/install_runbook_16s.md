@@ -97,11 +97,12 @@ _Findings:_
   **figshare, DOI `10.6084/m9.figshare.25254229` (v3)** — Holm 2024, "vSpeciateDB Models."
   Source of truth is `speciateIT/vSpeciateDB_models/README.md` in the cloned repo. Gating: TBD
   (figshare is normally open + scriptable via `ndownloader`; confirm on download).
-- 🔴 **REAL microFGT BUG — region directory names are wrong in our code.** Actual figshare dirs
-  are `vSpeciateIT_V1V3`, `vSpeciateIT_V1V9`, `vSpeciateIT_V3V4`, `vSpeciateIT_V4V4`. But
-  `microfgt/stages/registry.py` `REGION_DEFAULTS` uses **`V1V3` / `V3V4` / `V4`** — so our `V4`
-  should be **`V4V4`**, and we're missing **`V1V9`** (full-length). Any region↔DB match check
-  keyed on these names is off. → fix `REGION_DEFAULTS` + speciateIT `db` region validation.
+- 🟢 **FIXED (2026-09-02) — region names in the code.** Actual figshare dirs are
+  `vSpeciateIT_{V1V3,V1V9,V3V4,V4V4}`, but `REGION_DEFAULTS` used `V1V3 / V3V4 / **V4**` and
+  lacked `V1V9`, so a config using the correct model-region name (`V4V4`) lost its DADA2 defaults.
+  Renamed `V4`→`V4V4`, added `V1V9`, and kept `V4` as a colloquial alias (`region_defaults()`
+  normalizes it). *(The region↔DB `check` itself was fine — its substring match handles the
+  canonical names; earlier note overstated it.)*
 - Plan: download the **V3V4** set first — it's the region of the repo's documented ground-truth
   test (see below), so it lets us validate end-to-end. Place under
   `~/Projects/microfgt-refdata/speciateIT/vSpeciateDB_models/vSpeciateIT_V3V4/`.
