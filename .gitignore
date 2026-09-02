@@ -129,3 +129,6 @@ dist/
 
 # Local validation outputs derived from real cohort data (not for the public repo)
 validation/*.csv
+
+# Working session-plan scratch doc (local reference only; delete when the work is done)
+design/NEXT_SESSION.md
