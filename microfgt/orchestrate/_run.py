@@ -23,6 +23,25 @@ class ToolNotFoundError(FileNotFoundError):
     """Raised when an external tool executable cannot be located."""
 
 
+class ToolRunError(subprocess.CalledProcessError):
+    """An external tool exited non-zero.
+
+    Subclasses ``CalledProcessError`` (so existing handlers still catch it) but its message
+    shows the tool's OWN error output instead of just the exit code — the plain
+    ``CalledProcessError`` captures stderr yet never prints it, so the real cause is invisible.
+    We do not interpret the message; we relay whatever the tool wrote to stderr, verbatim.
+    """
+
+    def __init__(self, tool: str, returncode: int, argv, stdout: str, stderr: str):
+        super().__init__(returncode, argv, output=stdout, stderr=stderr)
+        self.tool = tool
+
+    def __str__(self) -> str:
+        err = (self.stderr or "").strip()
+        tail = "\n".join(err.splitlines()[-15:]) if err else "(the tool produced no error output)"
+        return f"{self.tool} failed (exit {self.returncode}).\n--- {self.tool} error output ---\n{tail}"
+
+
 @dataclass
 class RunRecord:
     """Provenance for one external-tool invocation (serialize into ``.uns``)."""
@@ -78,8 +97,8 @@ def run_command(
 ) -> RunRecord:
     """Run ``argv``, capturing output and provenance into a :class:`RunRecord`.
 
-    Raises ``subprocess.CalledProcessError`` (with captured stderr) if ``check`` and the
-    command exits non-zero."""
+    Raises :class:`ToolRunError` (a ``CalledProcessError`` subclass whose message shows the
+    tool's own stderr) if ``check`` and the command exits non-zero."""
     started = datetime.now(timezone.utc).isoformat()
     t0 = time.monotonic()
     proc = subprocess.run(
@@ -101,7 +120,5 @@ def run_command(
         stderr_tail=proc.stderr[-2000:],
     )
     if check and proc.returncode != 0:
-        raise subprocess.CalledProcessError(
-            proc.returncode, argv, output=proc.stdout, stderr=proc.stderr
-        )
+        raise ToolRunError(tool, proc.returncode, argv, proc.stdout, proc.stderr)
     return record

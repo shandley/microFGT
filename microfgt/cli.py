@@ -216,9 +216,16 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from microfgt.orchestrate._run import ToolNotFoundError, ToolRunError
+
     parser = build_parser()
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
-    args._run(args)
+    try:
+        args._run(args)
+    except (ToolRunError, ToolNotFoundError) as e:
+        # Show the external tool's own error (or the not-found hint), not a Python traceback.
+        print(f"error: {e}", file=sys.stderr)
+        return 1
     return 0
 
 
