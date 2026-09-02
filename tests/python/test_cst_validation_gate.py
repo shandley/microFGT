@@ -33,7 +33,9 @@ def test_centroid_reproduces_valencia_on_published_data():
     counts.index = df["Sample_number_for_SRA"].astype(str)
     rc = pd.Series(df["total_reads"].to_numpy(), index=counts.index)
 
-    out = classify_centroid(counts, read_count=rc)
+    # Pin the 2020 centroids: this gate validates our port against genuine VALENCIA output on the
+    # published dataset, which is 2020-named (see design/method_log.md M4). The default is 2024.
+    out = classify_centroid(counts, read_count=rc, reference="2020")
 
     truth_subcst = df["Val_subCST"].astype(str).to_numpy()
     truth_cst = df["Val_CST"].astype(str).to_numpy()

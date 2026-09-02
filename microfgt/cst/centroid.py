@@ -36,16 +36,31 @@ _COLLAPSE = {
     "I-A": "I", "I-B": "I", "III-A": "III", "III-B": "III",
     "IV-C0": "IV-C", "IV-C1": "IV-C", "IV-C2": "IV-C", "IV-C3": "IV-C", "IV-C4": "IV-C",
 }
-_BUNDLED_CENTROIDS = "cst_centroids_012920.csv"
+# Bundled centroid sets, selectable by name. VALENCIA's centroids are keyed by taxon NAME, so
+# the set must match the taxonomy assigner's naming (see design/method_log.md M4):
+#   "2024" — VALENCIA2 centroids (356 taxa, modern names). Matches speciateIT v6 output, so it
+#            is the DEFAULT: the 2020 set silently drops core BV taxa (Fannyhessea/Ca. Lachnocurva/
+#            L. mulieris/…) that speciateIT v6 emits, degrading CST IV calls.
+#   "2020" — original VALENCIA centroids (199 taxa, older names). Kept for reproducing the
+#            published paper and for the validation gate (whose gold-standard data is 2020-named).
+_CENTROID_SETS = {
+    "2024": "VALENCIA2_CST_centroids_19Aug2024.csv",
+    "2020": "cst_centroids_012920.csv",
+}
+_DEFAULT_CENTROIDS = "2024"
 
 
 def load_reference_centroids(reference=None) -> pd.DataFrame:
     """Load subCST x taxon reference centroids (relative abundances), indexed by subCST.
 
-    Defaults to VALENCIA's published centroids bundled with microFGT, so the centroid
-    method works out of the box (UX constraint A)."""
+    ``reference`` may be a bundled set name (``"2024"`` default, or ``"2020"``) or a path to a
+    custom centroids CSV. The default is the 2024 set so the centroid method matches speciateIT's
+    modern taxonomy out of the box (UX constraint A; see M4). Pass ``reference="2020"`` to
+    reproduce the original VALENCIA paper."""
     if reference is None:
-        with resources.files("microfgt.data").joinpath(_BUNDLED_CENTROIDS).open() as fh:
+        reference = _DEFAULT_CENTROIDS
+    if isinstance(reference, str) and reference in _CENTROID_SETS:
+        with resources.files("microfgt.data").joinpath(_CENTROID_SETS[reference]).open() as fh:
             df = pd.read_csv(fh)
     else:
         df = pd.read_csv(reference)

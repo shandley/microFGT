@@ -33,7 +33,8 @@ def test_centroid_reproduces_genuine_valencia_output(real_fixtures):
     genuine = pd.read_csv(real_fixtures / "valencia_genuine_output_head.csv")
     counts, rc = _reconstruct_input(genuine)
 
-    out = classify_centroid(counts, read_count=rc)
+    # Genuine Valencia.py head fixture is 2020-named, so pin the 2020 centroids (default is 2024).
+    out = classify_centroid(counts, read_count=rc, reference="2020")
 
     # Labels reproduced exactly.
     gi = genuine.set_index(genuine["sampleID"].astype(str))
@@ -73,3 +74,21 @@ def test_seam_is_swappable():
 def test_unknown_method_raises():
     with pytest.raises(ValueError, match="Unknown CST method"):
         classify_cst(pd.DataFrame(index=["s1"]), method="nope")
+
+
+def test_default_centroids_are_2024_and_match_speciateit_naming():
+    """Default centroids are the 2024 set, which carries the modern taxon names speciateIT v6
+    emits (the M4 fix). The 2020 set silently lacks these core BV taxa."""
+    from microfgt.cst.centroid import load_reference_centroids
+
+    default = load_reference_centroids()
+    v2024 = load_reference_centroids("2024")
+    v2020 = load_reference_centroids("2020")
+
+    assert list(default.index) == CST_ORDER          # 13 subCSTs, right order
+    assert default.equals(v2024)                      # default IS the 2024 set
+    assert v2024.shape[1] > v2020.shape[1]            # 2024 has the larger, modern vocabulary
+    # taxa speciateIT v6 emits that the 2020 centroids miss but 2024 includes:
+    for taxon in ("Fannyhessea_vaginae", "Ca_Lachnocurva_vaginae", "Lactobacillus_mulieris"):
+        assert taxon in v2024.columns, f"{taxon} missing from 2024 centroids"
+        assert taxon not in v2020.columns, f"{taxon} unexpectedly in 2020 centroids"
