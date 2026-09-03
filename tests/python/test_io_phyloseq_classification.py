@@ -52,3 +52,29 @@ def test_missing_everywhere_is_na():
     tax = pd.DataFrame({"Genus": ["", "NA"], "Species": [pd.NA, pd.NA]}, index=["A", "B"])
     cls = _classification_from_tax(tax)
     assert cls.isna().all()
+
+
+def test_gtdb_accession_and_doubled_genus_are_cleaned():
+    # FRESH-style GTDB tax_table: Species carries an accession suffix, Genus_Species repeats the
+    # genus with a space, and unclassified rows are placeholder text. (Regression for the Run 1
+    # validation blowup where 'Sneathia_vaginalis(RS_GCF...' leaked into the classification.)
+    tax = pd.DataFrame(
+        {
+            "Genus_Species": [
+                "Lactobacillus Lactobacillus_iners(RS_GCF_000160875_1",
+                "Fannyhessea Fannyhessea_vaginae(RS_GCF_000159235_2",
+                "Bacteria Domain Bacteria Domain",
+            ],
+            "Species": [
+                "Lactobacillus_iners(RS_GCF_000160875_1",
+                "Fannyhessea_vaginae(RS_GCF_000159235_2",
+                "Bacteria Domain",
+            ],
+            "Genus": ["Lactobacillus", "Fannyhessea", "Bacteria Domain"],
+        },
+        index=["A", "B", "C"],
+    )
+    cls = _classification_from_tax(tax)
+    assert cls.loc["A"] == "Lactobacillus_iners"       # accession + doubled genus stripped
+    assert cls.loc["B"] == "Fannyhessea_vaginae"
+    assert pd.isna(cls.loc["C"])                        # placeholder -> unclassified, not a fake taxon

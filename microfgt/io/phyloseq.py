@@ -52,11 +52,20 @@ def _bundled_script() -> str:
 
 
 def _clean(series: pd.Series) -> pd.Series:
-    """A tax-rank column as strings: strip GTDB rank prefixes and turn blanks / R ``NA``
-    sentinels into <NA>. Handles GTDB-taxonomy phyloseqs (e.g. HVTN) where labels arrive as
-    ``g_Lactobacillus``; leaves normal binomials and ``Ca_`` names untouched."""
+    """A tax-rank column as strings, normalised to a single usable taxon label.
+
+    Strips GTDB rank prefixes (``g_Lactobacillus`` -> ``Lactobacillus``), strips a GTDB
+    accession suffix (``Lactobacillus_iners(RS_GCF_000160875_1`` -> ``Lactobacillus_iners``),
+    and collapses a doubled-genus join (``Lactobacillus Lactobacillus_iners`` -> the FRESH-style
+    ``Genus_Species`` column repeats the genus -> ``Lactobacillus_iners``). Blanks / R ``NA``
+    sentinels become <NA>; so does any value that *still* contains a space after those repairs
+    (a GTDB placeholder like ``Bacteria Domain``), so it falls through to a usable rank rather
+    than becoming a fake taxon. Normal binomials and ``Ca_`` names are untouched."""
     s = series.astype("string").str.replace(_GTDB_PREFIX, "", regex=True)
-    return s.mask(s.str.strip().isin(_MISSING))
+    s = s.str.replace(r"\(.*$", "", regex=True)                       # drop GTDB accession suffix
+    s = s.str.replace(r"^(\S+)\s+(\1(?:_.*)?)$", r"\2", regex=True)    # collapse doubled genus
+    s = s.str.strip()
+    return s.mask(s.isin(_MISSING) | s.str.contains(" ", na=False))
 
 
 def _classification_from_tax(tax: pd.DataFrame) -> pd.Series:

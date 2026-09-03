@@ -20,6 +20,7 @@ Fidelity notes vs ``Valencia.py``:
 
 from __future__ import annotations
 
+import warnings
 from importlib import resources
 
 import anndata as ad
@@ -126,6 +127,7 @@ def classify_centroid(composition, reference=None, read_count=None) -> pd.DataFr
 
     # Taxon union (sample taxa first, then centroid-only taxa); order is irrelevant to theta.
     sample_taxa = list(counts.columns)
+    overlap = set(map(str, sample_taxa)) & set(map(str, centroids.columns))
     seen = set(sample_taxa)
     all_taxa = sample_taxa + [t for t in centroids.columns if t not in seen]
 
@@ -148,4 +150,25 @@ def classify_centroid(composition, reference=None, read_count=None) -> pd.DataFr
     out["score"] = sim_df.max(axis=1)
     out["CST"] = out["subCST"].replace(_COLLAPSE)
     out.index.name = "sample"
+
+    # Guard the silent-garbage case: theta is 0 when a sample shares no taxa with the reference
+    # centroids, and idxmax then collapses it to the first subCST with score 0 — a confident-
+    # looking wrong call. Surface it rather than return it quietly. The usual cause is a
+    # taxon-naming mismatch (e.g. GTDB names like 'Gardnerella_vaginalis(RS_GCF_...)' vs the
+    # speciateIT/VALENCIA name 'Gardnerella_vaginalis'), not real biology.
+    if not overlap:
+        warnings.warn(
+            f"CST: none of the {len(sample_taxa)} input taxa match the reference centroid names, "
+            f"so every sample scored 0 and collapsed to '{CST_ORDER[0]}'. The CST calls are not "
+            "meaningful — this is a taxon-naming mismatch; reconcile taxon names to the VALENCIA "
+            "convention (underscored binomials, no accession suffixes).",
+            stacklevel=2,
+        )
+    elif (out["score"] <= 0).any():
+        n0 = int((out["score"] <= 0).sum())
+        warnings.warn(
+            f"CST: {n0} of {len(out)} sample(s) scored 0 (no overlap with reference taxa) and "
+            f"defaulted to '{CST_ORDER[0]}' — check those samples' taxonomy.",
+            stacklevel=2,
+        )
     return out

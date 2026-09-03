@@ -51,6 +51,31 @@ def test_centroid_reproduces_genuine_valencia_output(real_fixtures):
         )
 
 
+def test_centroid_warns_on_total_taxon_name_mismatch():
+    # Taxa that share NO names with the reference centroids (e.g. GTDB-with-accession names) must
+    # not silently produce confident-looking calls: theta is 0 everywhere and it collapses to the
+    # first subCST. That has to surface as a warning, not pass quietly. (Run 1 finding.)
+    counts = pd.DataFrame(
+        {"Gardnerella_vaginalis(RS_GCF_x)": [100, 50], "Foo_bar": [0, 50]},
+        index=["s1", "s2"],
+    )
+    with pytest.warns(UserWarning, match="reference centroid names"):
+        out = classify_centroid(counts)
+    assert (out["score"] == 0).all()
+    assert out["subCST"].nunique() == 1          # all collapsed to the same (first) subCST
+
+
+def test_centroid_no_mismatch_warning_on_normal_input(real_fixtures):
+    genuine = pd.read_csv(real_fixtures / "valencia_genuine_output_head.csv")
+    counts, rc = _reconstruct_input(genuine)
+    import warnings as _w
+
+    with _w.catch_warnings(record=True) as caught:
+        _w.simplefilter("always")
+        classify_centroid(counts, read_count=rc, reference="2020")
+    assert not [w for w in caught if "centroid names" in str(w.message) or "scored 0" in str(w.message)]
+
+
 def test_classify_cst_dispatches_to_centroid(real_fixtures):
     genuine = pd.read_csv(real_fixtures / "valencia_genuine_output_head.csv")
     counts, rc = _reconstruct_input(genuine)
