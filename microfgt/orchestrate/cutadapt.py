@@ -48,10 +48,26 @@ def run_cutadapt(
     fwd_primer: str | None = None,
     rev_primer: str | None = None,
     executable: str = "cutadapt",
+    discard_untrimmed: bool = False,
     extra_args=None,
     timeout: float | None = None,
 ):
     """Trim primers from every FASTQ pair in ``input_dir`` into ``output_dir``.
+
+    Parameters
+    ----------
+    fwd_primer / rev_primer:
+        5' primers passed as cutadapt ``-g`` / ``-G`` (regular 5' adapters — the match plus any
+        preceding heterogeneity spacer is removed).
+    discard_untrimmed:
+        Drop read pairs where the primer was not found (cutadapt ``--discard-untrimmed``). For
+        amplicon data this keeps only on-target reads; only meaningful when a primer is given
+        (with no adapter, cutadapt would discard everything). See :func:`_run_primer_trim` for the
+        primers-configured default.
+    extra_args:
+        Extra cutadapt args appended verbatim (e.g. ``--pair-filter=both``, ``--minimum-length``),
+        so a user can tune behaviour without a code change. Appended last, so they can override
+        the flags set above.
 
     Returns one RunRecord per sample.
     """
@@ -70,6 +86,8 @@ def run_cutadapt(
             argv += ["-g", fwd_primer]
         if r2 and rev_primer:
             argv += ["-G", rev_primer]
+        if discard_untrimmed:
+            argv += ["--discard-untrimmed"]
         argv += ["-o", str(output_dir / r1.name)]
         if r2:
             argv += ["-p", str(output_dir / r2.name)]

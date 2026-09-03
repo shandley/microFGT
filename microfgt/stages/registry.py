@@ -98,10 +98,17 @@ def _run_primer_trim(ctx: StageContext) -> None:
 
     reads = (ctx.config.get("composition") or {}).get("reads") or {}
     primers = reads.get("primers") or {}
+    primers_configured = bool(primers.get("fwd") or primers.get("rev"))
+    # Default to dropping primer-less (off-target) reads WHEN primers are configured — the Run 1
+    # shakedown found ~16-27% of reads had no primer yet all flowed into DADA2. Only safe with a
+    # primer set (cutadapt with no adapter would discard everything), and overridable via config.
+    discard_untrimmed = reads.get("discard_untrimmed", primers_configured)
     records = run_cutadapt(
         ctx.path("fastq_dir"), ctx.path("trimmed_reads"),
         fwd_primer=primers.get("fwd"), rev_primer=primers.get("rev"),
         executable=reads.get("cutadapt", "cutadapt"),
+        discard_untrimmed=discard_untrimmed,
+        extra_args=reads.get("cutadapt_args") or None,
     )
     _write_provenance(ctx, "primer_trim", records)
 
