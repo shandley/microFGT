@@ -40,19 +40,37 @@ arm, the **speciateIT binary + a vSpeciateDB model** (`microfgt setup` owns this
 ### 16S (amplicon)
 
 ```bash
+# 0. Get the code.
+git clone https://github.com/shandley/microFGT.git
+cd microFGT
+
 # 1. Environment — lean 16S-only env (cutadapt + DADA2), then the package.
 conda env create -f environment-16s.yml     # or: mamba env create -f environment-16s.yml
 conda activate microfgt-16s
 pip install -e ".[dev]"                      # package + Python deps (single-sourced in pyproject.toml)
 
-# 2. Taxonomy tool + reference model — speciateIT + the vSpeciateDB model for your region.
+# 2. Taxonomy tool + reference model — speciateIT + the vSpeciateDB model for YOUR region.
 microfgt setup --region V3V4 --dest ~/microfgt-refdata
 ```
 
 `microfgt setup` clones the speciateIT `classify` binary, downloads and checksum-verifies the
-vSpeciateDB model for `--region` (`V1V3 | V1V9 | V3V4 | V4V4`; `V4` aliases `V4V4`), and writes a
-ready-to-run `microfgt-16s.yaml` under `--dest`. It finishes by running the ground-truth
-classifier test and `microfgt check`, so you know the install works before you point it at data.
+vSpeciateDB model for `--region`, and writes a ready-to-run `microfgt-16s.yaml` under `--dest`.
+It finishes by running a ground-truth classifier test and `microfgt check`, so you know the
+install works before you point it at data.
+
+**Which `--region`?** Pick the model matching the primers your amplicon was sequenced with — the
+model must match your data (classifying V4 reads against a V3V4 model gives wrong calls):
+
+| `--region` | Common primers | Notes |
+|---|---|---|
+| `V1V3` | 27F / 534R | |
+| `V3V4` | 341F / 805R | Illumina 2×300 |
+| `V4` → `V4V4` | 515F / 806R | Earth Microbiome; `V4` is accepted as an alias |
+| `V1V9` | 27F / 1492R | full-length, typically PacBio |
+
+The `microfgt-16s.yaml` that `setup` writes is a **self-test** wired to a bundled *V3V4* example —
+its calls are biologically meaningful only when `--region V3V4` (for other regions it just proves
+the plumbing runs). Point the config at your own data (below) for real results.
 
 > **Note (paths with spaces):** speciateIT's `classify` breaks on spaces in a path, and conda
 > won't create an env under a spaced prefix. On a machine whose home dir has a space (e.g.

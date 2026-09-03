@@ -15,11 +15,14 @@
 #
 #   composition:
 #     reads:
-#       fastq_dir: raw/                 # paired *_R1*/*_R2* FASTQs
-#       region: V3V4                    # sets DADA2 + speciateIT model defaults
-#       primers: { fwd: <FWD>, rev: <REV> }
-#       dada2: { trunc_len: [280, 230], trim_left: [17, 21] }   # overridable
+#       fastq_dir: raw/                 # paired *_R1*/*_R2* (or ENA _1/_2) FASTQs
+#       region: V3V4                    # your amplicon's region; sets DADA2 + model defaults
+#       primers: { fwd: CCTACGGGNGGCWGCAG, rev: GACTACHVGGGTATCTAATCC }   # 341F/805R (V3V4)
+#       # cutadapt strips these primers, so trim_left defaults to 0 automatically — do NOT set it
+#       # (setting trim_left when primers are configured trims real sequence twice). Override
+#       # truncation only if read quality needs it:  dada2: { trunc_len: [280, 230] }
 #     speciateit:
+#       classify: /path/to/speciateIT/bin/macosx/classify   # or "classify" if it's on PATH
 #       db: /path/to/vSpeciateIT_V3V4
 #
 # Or enter at a phyloseq .rds — the standard 16S container (needs R + phyloseq). It carries
