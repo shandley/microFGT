@@ -112,11 +112,19 @@ def _run_denoise(ctx: StageContext) -> None:
     reads = (ctx.config.get("composition") or {}).get("reads") or {}
     defaults = region_defaults(reads.get("region"))
     d = reads.get("dada2") or {}
+    # trim_left contract: cutadapt (the primer_trim stage) already removes the primers WHEN
+    # they're configured, so applying the region-default trim_left on top would double-trim real
+    # sequence. Key the default on whether primers were configured — not on stage presence: a
+    # cutadapt run with no primers set is a no-op, and there trim_left is the legitimate primer
+    # strip. An explicit dada2.trim_left always wins.
+    primers = reads.get("primers") or {}
+    primers_configured = bool(primers.get("fwd") or primers.get("rev"))
+    default_trim_left = [0, 0] if primers_configured else defaults.get("trim_left")
     record = run_dada2(
         ctx.path("trimmed_reads"), ctx.path("asv_table"), ctx.path("asv_seqs"),
         ctx.path("quality_profile"),
         trunc_len=d.get("trunc_len", defaults.get("trunc_len")),
-        trim_left=d.get("trim_left", defaults.get("trim_left")),
+        trim_left=d.get("trim_left", default_trim_left),
         rscript=reads.get("rscript", "Rscript"),
     )
     _write_provenance(ctx, "denoise", [record])
@@ -140,9 +148,11 @@ def _run_import_composition(ctx: StageContext) -> None:
 
     # Carry ASV sequences when the FASTA is available (dada2-emitted or user-provided).
     asv_seqs = ctx.path("asv_seqs")
+    # The vSpeciateDB dir (model.tree) drives authoritative species->genus resolution.
+    db = ((ctx.config.get("composition") or {}).get("speciateit") or {}).get("db")
     adata = import_speciateit(
         ctx.path("speciateit_results"), ctx.path("asv_table"),
-        fasta=asv_seqs if asv_seqs.exists() else None,
+        fasta=asv_seqs if asv_seqs.exists() else None, db=db,
     )
     adata.write(ctx.path("composition"))
 

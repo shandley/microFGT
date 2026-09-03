@@ -22,6 +22,7 @@ shape, but the importer still carries a real-output-validation IOU (no genuine
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import anndata as ad
@@ -70,15 +71,91 @@ def _read_fasta(fasta_path) -> dict[str, str]:
     return {k: "".join(v) for k, v in seqs.items()}
 
 
-def _genus_of(taxon: str) -> str:
-    """First token of a Classification (e.g. 'Lactobacillus_iners' -> 'Lactobacillus').
-
-    Imperfect for abbreviated names (e.g. 'Ca_Lachnocurva_vaginae' -> 'Ca'); refine when
-    real speciateIT output is available (first HTCF run)."""
-    return taxon.split("_")[0].split(" ")[0]
+# The seven Linnaean rank codes speciateIT tags onto a higher-than-species backoff call
+# (e.g. `g_Prevotella`, `d_Bacteria`). This is the ONLY fixed list — stable nomenclature, not
+# DB-specific; which genus a species belongs to comes from the installed model tree.
+_RANK_PREFIX = re.compile(r"^([dpcofgs])_(?P<rest>.+)$")
 
 
-def import_speciateit(results_path, count_table_path, fasta=None) -> ad.AnnData:
+def _binomial_genus(label: str) -> str | None:
+    """Genus from a species binomial by stripping the LAST ``_`` token (the epithet).
+
+    Polyphyly suffixes and the Candidatus prefix sit *before* the epithet, so they survive:
+    ``Gardnerella_vaginalis`` -> ``Gardnerella``; ``Ca_Lachnocurva_vaginae`` -> ``Ca_Lachnocurva``.
+    (Contrast the old ``split('_')[0]`` bug, which took the FIRST token -> "Ca", "Gardnerella" ok
+    by luck, "g" for ``g_Prevotella``.)
+    """
+    label = label.split(" ")[0]
+    return label.rsplit("_", 1)[0] if "_" in label else label
+
+
+def _genus_of(label):
+    """Tree-less genus resolution: rank-tag rule + binomial fallback.
+
+    ``g_<X>`` -> ``X``; a higher-rank backoff (``d_/p_/c_/o_/f_/s_``) -> ``None`` (honestly
+    unclassified at genus — never a fake "d"); otherwise a species binomial -> :func:`_binomial_genus`.
+    Used where no model tree is available (phyloseq import, taxon roll-up). For speciateIT ASV
+    import, :func:`make_genus_resolver` layers the authoritative tree lookup on top of this.
+    """
+    if not isinstance(label, str) or not label:
+        return None
+    m = _RANK_PREFIX.match(label)
+    if m:
+        return m.group("rest") if m.group(1) == "g" else None
+    return _binomial_genus(label)
+
+
+def _tree_leaf_to_genus(db) -> dict:
+    """Map species-leaf name -> genus via the nearest ``g_`` ancestor in ``<db>/model.tree``.
+
+    Returns ``{}`` when the tree is missing/unreadable (caller falls back to the tree-less rule).
+    Leaves with no ``g_`` ancestor are omitted deliberately: not every genus is wrapped in a
+    ``g_`` clade (~18% of leaves, incl. *Gardnerella*), and those must fall back to the binomial
+    genus, NOT to NA. The tree's real job is the polyphyly cases the string can't resolve
+    (``Dorea_A_longicatena`` -> ``Dorea_A`` but ``Aerococcus_urinae_A`` -> ``Aerococcus``).
+    """
+    from pathlib import Path
+
+    tree_path = Path(db) / "model.tree"
+    if not tree_path.exists():
+        return {}
+    try:
+        from skbio.tree import TreeNode
+
+        # convert_underscores=False is REQUIRED — the Newick default rewrites `g_Prevotella`
+        # to `g Prevotella` (and every label), so no node would ever match.
+        tree = TreeNode.read(str(tree_path), convert_underscores=False)
+    except Exception:
+        return {}
+    mapping: dict[str, str] = {}
+    for leaf in tree.tips():
+        anc = leaf.parent
+        while anc is not None:
+            if anc.name and anc.name.startswith("g_"):
+                mapping[leaf.name] = anc.name[2:]
+                break
+            anc = anc.parent
+    return mapping
+
+
+def make_genus_resolver(db=None):
+    """Return a ``label -> genus_or_None`` callable.
+
+    With a model ``db`` (the vSpeciateDB dir holding ``model.tree``), species leaves resolve
+    through the tree — authoritative for GTDB polyphyly (``Aerococcus_urinae_A`` -> ``Aerococcus``,
+    which no positional string rule can get). Rank-tag backoff calls and any leaf not wrapped in a
+    ``g_`` clade fall through to the tree-less rule (:func:`_genus_of`)."""
+    leaf2genus = _tree_leaf_to_genus(db) if db else {}
+
+    def resolve(label):
+        if isinstance(label, str) and not _RANK_PREFIX.match(label) and label in leaf2genus:
+            return leaf2genus[label]
+        return _genus_of(label)
+
+    return resolve
+
+
+def import_speciateit(results_path, count_table_path, fasta=None, db=None) -> ad.AnnData:
     """Import speciateIT classifications + an ASV count table -> **ASV x sample** composition.
 
     Parameters
@@ -92,15 +169,19 @@ def import_speciateit(results_path, count_table_path, fasta=None) -> ad.AnnData:
         Optional FASTA whose headers are the ASV ids (speciateIT's own input). When given,
         each ASV's sequence is attached to ``var['sequence']`` — the source of truth. ASVs
         with no record in the FASTA (e.g. a trimmed fixture) get a missing sequence.
+    db:
+        Optional vSpeciateDB model directory (the one classify used). When given, its
+        ``model.tree`` drives authoritative species->genus resolution (esp. GTDB polyphyly);
+        without it, genus falls back to the tree-less rule. See :func:`make_genus_resolver`.
 
     Returns
     -------
     anndata.AnnData
         ``obs`` = samples (``read_count`` = per-sample total). ``var`` = ASVs, with
         ``classification`` (the speciateIT label, or NaN if the ASV was not classified),
-        ``genus`` (first token of the classification), and ``sequence`` (if a FASTA was
-        supplied). ``X`` / ``layers['counts']`` hold ASV counts. This is the ``composition``
-        modality; roll it up to taxa with :func:`collapse_to_taxon`.
+        ``genus`` (resolved via the model tree / rank rule; NaN for a higher-rank backoff
+        call), and ``sequence`` (if a FASTA was supplied). ``X`` / ``layers['counts']`` hold
+        ASV counts. This is the ``composition`` modality; roll it up with :func:`collapse_to_taxon`.
     """
     asv2taxon = _read_asv_to_taxon(results_path)
 
@@ -108,8 +189,9 @@ def import_speciateit(results_path, count_table_path, fasta=None) -> ad.AnnData:
     ct.index = ct.index.astype(str)
     asvs = [str(c) for c in ct.columns]
 
+    resolve_genus = make_genus_resolver(db)
     classification = [asv2taxon.get(a) for a in asvs]  # None -> unclassified (kept as a feature)
-    genus = [_genus_of(c) if c is not None else None for c in classification]
+    genus = [resolve_genus(c) if c is not None else None for c in classification]
     var = pd.DataFrame(
         {"classification": classification, "genus": genus},
         index=pd.Index(asvs, name="asv"),
@@ -183,8 +265,21 @@ def collapse_to_taxon(
     grouped = grouped.astype(np.int64)
     taxa = list(grouped.columns)
 
+    # Inherit each taxon's genus from the ASV-grain composition (resolved at import with the
+    # model tree) rather than re-parsing the label here, where no tree is available. All ASVs
+    # sharing a classification share a genus, so the first non-null wins. Fall back to the
+    # tree-less rule only if the ASV grain carried no genus column.
+    label_to_genus: dict[str, object] = {}
+    if "genus" in composition.var:
+        asv_genus = composition.var["genus"]
+        for asv, lab in zip(composition.var_names, labels):
+            if lab not in label_to_genus:
+                g = asv_genus.loc[asv]
+                if not pd.isna(g):
+                    label_to_genus[lab] = g
     var = pd.DataFrame(
-        {"genus": [t if t == unclassified_label else _genus_of(t) for t in taxa]},
+        {"genus": [t if t == unclassified_label else label_to_genus.get(t, _genus_of(t))
+                   for t in taxa]},
         index=pd.Index(taxa, name="taxon"),
     )
     obs = pd.DataFrame(
