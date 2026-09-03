@@ -34,6 +34,17 @@ def build_parser() -> argparse.ArgumentParser:
     chk.add_argument("-c", "--config", required=True)
     chk.set_defaults(_run=_cmd_check)
 
+    setup = sub.add_parser(
+        "setup", help="Install the 16S prerequisites conda can't (speciateIT + a vSpeciateDB model)."
+    )
+    setup.add_argument("--region", required=True,
+                       help="16S region / model: V1V3 | V1V9 | V3V4 | V4V4 (V4 aliases V4V4).")
+    setup.add_argument("--dest", required=True, help="Directory to install the binary + model into.")
+    setup.add_argument("--require-pinned", action="store_true",
+                       help="Refuse a region whose zip sha256 isn't pinned (default: trust-on-"
+                            "first-use and record the computed hash).")
+    setup.set_defaults(_run=_cmd_setup)
+
     clf = sub.add_parser("classify", help="Classify CST on a .h5mu's composition modality.")
     clf.add_argument("-i", "--input", required=True)
     clf.add_argument("-o", "--output", required=True)
@@ -123,6 +134,14 @@ def _cmd_check(args: argparse.Namespace) -> None:
     if missing:
         raise SystemExit(f"{len(missing)} prerequisite(s) missing — see above.")
     print("all prerequisites satisfied.")
+
+
+def _cmd_setup(args: argparse.Namespace) -> None:
+    from microfgt.setup16s import run_setup
+
+    rc = run_setup(args.region, args.dest, require_pinned=args.require_pinned)
+    if rc != 0:
+        raise SystemExit(rc)
 
 
 def _cmd_run_stage(args: argparse.Namespace) -> None:

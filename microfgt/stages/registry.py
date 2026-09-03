@@ -33,6 +33,25 @@ def region_defaults(region: str | None) -> dict:
     return REGION_DEFAULTS.get(_REGION_ALIASES.get(region, region), {})
 
 
+def canonical_region(region: str) -> str:
+    """Normalise a region string to its canonical vSpeciateDB model-region name.
+
+    Accepts the four model-region names (``V1V3 | V1V9 | V3V4 | V4V4``) case-insensitively
+    plus the colloquial aliases (e.g. ``"V4"`` -> ``"V4V4"``). Raises ``ValueError`` for
+    anything else, so ``microfgt setup`` never fetches a model for a region that isn't real.
+    """
+    if region is None:
+        raise ValueError("no region given (expected one of V1V3 / V1V9 / V3V4 / V4V4)")
+    token = _REGION_ALIASES.get(region.upper(), region.upper())
+    if token not in REGION_DEFAULTS:
+        raise ValueError(
+            f"unknown region {region!r} — expected one of "
+            f"{' / '.join(sorted(REGION_DEFAULTS))} (or the alias "
+            f"{' / '.join(sorted(_REGION_ALIASES))})"
+        )
+    return token
+
+
 # --- config -> provided artifacts (the entry point is just which inputs are present) -------
 def provided_artifacts(config: dict) -> dict[str, str]:
     provided: dict[str, str] = {}
