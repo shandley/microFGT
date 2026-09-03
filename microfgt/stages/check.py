@@ -84,6 +84,37 @@ def _region_db_consistency(config, stage_ids) -> list[CheckResult]:
     return [CheckResult(ok, msg)]
 
 
+def speciateit_space_warnings(config: dict, workdir=None, target: str = "mudata") -> list[str]:
+    """Advisory: paths feeding speciateIT that contain a space.
+
+    speciateIT's ``classify`` shells out to ``mkdir``/``grep`` unquoted, so a space in a path it
+    reads or writes splits the command and the run fails partway (e.g. ``mkdir: /Users/Megan:
+    Permission denied``). The offenders are its **input FASTA** and its **output dir / workdir** —
+    the ``db`` path is read via ``fopen`` and tolerates spaces. Returns human-readable warning
+    lines (empty when the speciateIT ``assign`` stage isn't in the plan, or nothing has a space).
+    This is a warning, not a hard failure: a non-bundled ``classify`` may tolerate spaces.
+    """
+    try:
+        stage_ids = {s.id for s in resolve(target, set(provided_artifacts(config)))}
+    except Exception:
+        return []
+    if "assign" not in stage_ids:
+        return []
+    comp = config.get("composition") or {}
+    reads = comp.get("reads") or {}
+    candidates = {
+        "workdir": workdir,
+        "composition.asv_seqs": comp.get("asv_seqs"),
+        "composition.reads.fastq_dir": reads.get("fastq_dir"),
+    }
+    return [
+        f"WARN speciateIT's classify breaks on spaces in a path — {name} contains a space "
+        f"({value!r}). Use a space-free location or the run may fail mid-pipeline."
+        for name, value in candidates.items()
+        if value and " " in str(value)
+    ]
+
+
 def check(config: dict, target: str = "mudata") -> list[CheckResult]:
     """Verify the tools/paths needed for the stages that WILL run for these inputs."""
     provided = set(provided_artifacts(config))

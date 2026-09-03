@@ -28,6 +28,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -157,13 +158,32 @@ def resolve_figshare_file(region: str) -> dict:
     return matches[0]
 
 
-def download(url: str, out_path: Path) -> Path:
-    """Download ``url`` -> ``out_path`` (streamed; follows figshare's ndownloader redirect)."""
+def download(url: str, out_path: Path, *, retries: int = 3) -> Path:
+    """Download ``url`` -> ``out_path`` (streamed; follows figshare's ndownloader redirect).
+
+    Retries a few times on a network error or a short read — a transient blip that silently
+    truncates the file happens in practice (hit one during Run 1). When the server sends a
+    ``Content-Length``, the written size is checked against it so a truncated download is caught
+    and retried rather than passed on to the (pinned-only) sha256 check.
+    """
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(url, timeout=120) as resp:  # noqa: S310 (pinned https URL)
-        with open(out_path, "wb") as fh:
-            shutil.copyfileobj(resp, fh, length=1024 * 1024)
-    return out_path
+    last_error = None
+    for attempt in range(1, retries + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=120) as resp:  # noqa: S310 (pinned https URL)
+                expected = resp.headers.get("Content-Length")
+                expected = int(expected) if expected and expected.isdigit() else None
+                with open(out_path, "wb") as fh:
+                    shutil.copyfileobj(resp, fh, length=1024 * 1024)
+            got = out_path.stat().st_size
+            if expected is not None and got != expected:
+                raise OSError(f"incomplete download: got {got} of {expected} bytes")
+            return out_path
+        except (urllib.error.URLError, OSError) as e:
+            last_error = e
+            if attempt < retries:
+                _echo(f"  download attempt {attempt}/{retries} failed ({e}); retrying…")
+    raise SetupError(f"download failed after {retries} attempts: {last_error}")
 
 
 def sha256_file(path: Path) -> str:

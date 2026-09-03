@@ -103,13 +103,21 @@ def _attach_cst(mdata, cst_df) -> None:
 
 
 def _cmd_run(args: argparse.Namespace) -> None:
-    from microfgt.stages import LocalExecutor, SnakemakeExecutor, provided_artifacts, resolve
+    from microfgt.stages import (
+        LocalExecutor,
+        SnakemakeExecutor,
+        provided_artifacts,
+        resolve,
+        speciateit_space_warnings,
+    )
 
     config = _load_config(args.config)
     out = args.output or config.get("output")
     if not out:
         raise SystemExit("No output path: pass -o/--output or set 'output:' in the config.")
     workdir = args.workdir or tempfile.mkdtemp(prefix="microfgt_")
+    for w in speciateit_space_warnings(config, workdir=workdir):
+        print(w)
     stages = resolve("mudata", provided_artifacts(config))
     plan = " -> ".join(s.id for s in stages) or "(nothing to do)"
 
@@ -125,15 +133,35 @@ def _cmd_run(args: argparse.Namespace) -> None:
 
 
 def _cmd_check(args: argparse.Namespace) -> None:
-    from microfgt.stages import check
+    from microfgt.stages import check, speciateit_space_warnings
 
-    results = check(_load_config(args.config))
+    config = _load_config(args.config)
+    results = check(config)
     for r in results:
         print(r.message)
+    for w in speciateit_space_warnings(config):
+        print(w)
     missing = [r for r in results if not r.ok]
     if missing:
+        hint = _conda_env_hint(missing)
+        if hint:
+            print(hint)
         raise SystemExit(f"{len(missing)} prerequisite(s) missing — see above.")
     print("all prerequisites satisfied.")
+
+
+# The 16S tools conda provides — if these are the ones missing, the env is likely just not active.
+_CONDA_TOOLS = {"cutadapt", "rscript", "dada2"}
+
+
+def _conda_env_hint(missing) -> str | None:
+    """A pointed hint when the *missing* prereqs are conda-provided tools: the environment is
+    probably just not activated (they report MISS on PATH even though they're installed)."""
+    names = {r.message.split("'")[1].split("/")[-1].lower() for r in missing if "'" in r.message}
+    if names & _CONDA_TOOLS:
+        return ("hint: those tools are provided by the conda env — if you installed it, activate "
+                "it first (e.g. `conda activate microfgt-16s`) and re-run, before installing anything.")
+    return None
 
 
 def _cmd_setup(args: argparse.Namespace) -> None:
